@@ -102,7 +102,7 @@ htf_trend_bullish = na(htf_close) or na(htf_ma_long) ? true : htf_close > htf_ma
 volatility = ta.atr(14) / math.max(close, 0.0000001)
 efficiency_length = 14
 price_change = math.abs(close - nz(close[efficiency_length], close))
-path_length  = ta.sum(math.abs(close - close[1]), efficiency_length)
+path_length  = math.sum(math.abs(close - close[1]), efficiency_length)
 fractal_efficiency = path_length > 0 ? price_change / path_length : 0
 
 ma_long       = ta.ema(close, ma_long_len)
@@ -445,7 +445,7 @@ plot(show_resistance_graph ? bear_strength_pct : na, title="Bear Strength %", li
 // Data table
 var table t = table.new(position.top_right, 4, 9, border_width=1)
 if show_table and barstate.islast
-    table.clear(t)
+    table.clear(t, 0, 0, 3, 8)
     table.cell(t, 0, 0, "ECE Pro V2", text_color=color.white, bgcolor=color.new(color.black, 0))
     table.cell(t, 0, 1, "Trend", text_color=color.white, bgcolor=color.new(color.black, 0))
     table.cell(t, 0, 2, "Momentum", text_color=color.white, bgcolor=color.new(color.black, 0))
