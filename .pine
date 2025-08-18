@@ -1,0 +1,498 @@
+// © 2024 Elite Trading Systems - Enhanced Version
+//@version=6
+indicator("Elite Confluence Engine Pro V2", "ECE Pro V2", overlay=true, max_boxes_count=100, max_lines_count=100, max_labels_count=150)
+
+// █████████████████████████████████████████████████████████████████████████████████
+//                                ENHANCED CORE INPUTS
+// █████████████████████████████████████████████████████████████████████████████████
+
+// A. Multi-Timeframe Trend Engine
+group_trend = "🎯 Multi-Timeframe Trend Engine"
+htf_multiplier = input.int(4, "Higher Timeframe Multiplier", minval=2, maxval=20, group=group_trend)
+ma_long_len   = input.int(200, "Institutional MA Length", minval=50, maxval=500, group=group_trend)
+ma_fast_len   = input.int(21,  "Fast Trend MA", minval=10, maxval=50, group=group_trend)
+ma_slow_len   = input.int(50,  "Slow Trend MA", minval=20, maxval=100, group=group_trend)
+st_atr_len    = input.int(10,  "Supertrend ATR Period", minval=5, maxval=20, group=group_trend)
+st_factor     = input.float(3.0, "Supertrend Sensitivity", minval=1.0, maxval=5.0, step=0.1, group=group_trend)
+use_adaptive_ma = input.bool(true, "Use Adaptive Moving Averages", group=group_trend)
+
+// B. Advanced Momentum & Volume Engine
+group_momentum     = "⚡ Advanced Momentum Engine"
+rsi_len            = input.int(14, "RSI Length", minval=5, maxval=50, group=group_momentum)
+rsi_smooth         = input.int(3,  "RSI Smoothing", minval=1, maxval=10, group=group_momentum)
+rsi_ob             = input.int(70, "RSI Overbought", minval=60, maxval=90, group=group_momentum)
+rsi_os             = input.int(30, "RSI Oversold",  minval=10, maxval=40, group=group_momentum)
+macd_fast          = input.int(12, "MACD Fast", minval=5, maxval=20, group=group_momentum)
+macd_slow          = input.int(26, "MACD Slow", minval=15, maxval=40, group=group_momentum)
+macd_signal        = input.int(9,  "MACD Signal", minval=5, maxval=15, group=group_momentum)
+use_volume_confirmation = input.bool(true, "Volume Confirmation", group=group_momentum)
+volume_threshold   = input.float(1.5, "Volume Spike Threshold", minval=1.0, maxval=3.0, step=0.1, group=group_momentum)
+
+// C. Order Flow & Market Microstructure
+group_orderflow    = "📊 Order Flow & Market Microstructure"
+enable_orderflow   = input.bool(true, "Enable Order Flow Analysis", group=group_orderflow)
+cvd_length         = input.int(20, "Cumulative Volume Delta Length", minval=5, maxval=50, group=group_orderflow)
+delta_smoothing    = input.int(3,  "Delta Smoothing", minval=1, maxval=10, group=group_orderflow)
+imbalance_threshold= input.float(0.7, "Order Imbalance Threshold", minval=0.5, maxval=0.9, step=0.1, group=group_orderflow)
+
+// D. Smart Money Concepts
+group_smc          = "🧠 Smart Money Concepts"
+enable_smc         = input.bool(true, "Enable Smart Money Analysis", group=group_smc)
+fvg_threshold      = input.float(0.5, "Fair Value Gap Threshold %", minval=0.1, maxval=2.0, step=0.1, group=group_smc)
+bos_lookback       = input.int(20, "Break of Structure Lookback", minval=10, maxval=50, group=group_smc)
+
+// E. Supply/Demand & Dynamic S/R
+group_supply_demand   = "🏛️ Supply/Demand & Dynamic S/R"
+enable_supply_demand  = input.bool(true, "Enable Supply/Demand Zones", group=group_supply_demand)
+zone_strength_min     = input.int(3, "Minimum Zone Strength", minval=1, maxval=10, group=group_supply_demand)
+zone_lookback         = input.int(50, "Zone Detection Lookback", minval=20, maxval=200, group=group_supply_demand)
+show_resistance_graph = input.bool(true, "Show Resistance Strength Graph", group=group_supply_demand)
+
+// F. Market Regime & Volatility
+group_regime            = "🌊 Market Regime & Volatility Analysis"
+regime_length           = input.int(50, "Market Regime Detection Length", minval=20, maxval=100, group=group_regime)
+volatility_percentile   = input.int(80, "High Volatility Percentile", minval=70, maxval=95, group=group_regime)
+trend_strength_threshold= input.float(0.6, "Trend Strength Threshold", minval=0.3, maxval=0.9, step=0.1, group=group_regime)
+
+// G. Market Structure & Quality Filters
+group_structure     = "🏗️ Enhanced Market Structure"
+adr_lookback        = input.int(20, "ADR Calculation Period", minval=10, maxval=50, group=group_structure)
+min_candle_body     = input.float(0.4, "Minimum Candle Body %", minval=0.1, maxval=0.8, step=0.1, group=group_structure)
+use_session_filter  = input.bool(true, "Enhanced Session Filter", group=group_structure)
+use_news_filter     = input.bool(true, "High Impact News Filter", group=group_structure)
+volatility_threshold= input.float(2.0, "Max Volatility Multiplier", minval=1.0, maxval=5.0, step=0.1, group=group_structure)
+
+// H. Risk Management
+group_risk              = "🛡️ Advanced Risk Management"
+sl_atr_mult             = input.float(2.0, "Stop Loss ATR Multiplier", minval=0.5, maxval=5.0, step=0.1, group=group_risk)
+tp_ratio                = input.float(2.5, "Take Profit Ratio (R:R)", minval=1.0, maxval=5.0, step=0.1, group=group_risk)
+max_risk_per_trade      = input.float(2.0, "Max Risk Per Trade %", minval=0.5, maxval=10.0, step=0.1, group=group_risk)
+show_risk_levels        = input.bool(true, "Show Risk/Reward Levels", group=group_risk)
+dynamic_position_sizing = input.bool(true, "Dynamic Position Sizing", group=group_risk)
+
+// I. Visual & Alert Settings
+group_visuals        = "🎨 Advanced Visuals"
+show_confluence_zones= input.bool(true, "Show Confluence Zones", group=group_visuals)
+show_sr_levels       = input.bool(true, "Show S/R Levels", group=group_visuals)
+show_table           = input.bool(true, "Show Analysis Table", group=group_visuals)
+show_heatmap         = input.bool(true, "Show Confluence Heatmap", group=group_visuals)
+signal_strength_filter = input.string("Medium", "Minimum Signal Strength", options=["Low","Medium","High","Maximum"], group=group_visuals)
+alerts_enabled       = input.bool(true, "Enable All Alerts", group=group_visuals)
+
+// █████████████████████████████████████████████████████████████████████████████████
+//                             ENHANCED CALCULATIONS
+// █████████████████████████████████████████████████████████████████████████████████
+
+// 1) Higher Timeframe routing
+current_tf = timeframe.period
+htf_timeframe_str = current_tf == "1"   ? "5"  :
+     current_tf == "5"   ? "15" :
+     current_tf == "15"  ? "60" :
+     current_tf == "30"  ? "120":
+     current_tf == "60"  ? "240":
+     current_tf == "240" ? "1D" :
+     current_tf == "1D"  ? "1W" : "1D"
+
+use_htf = htf_timeframe_str != current_tf
+htf_close    = use_htf ? request.security(syminfo.tickerid, htf_timeframe_str, close,      lookahead=barmerge.lookahead_off) : close
+htf_ma_long  = use_htf ? request.security(syminfo.tickerid, htf_timeframe_str, ta.ema(close, ma_long_len), lookahead=barmerge.lookahead_off) : ta.ema(close, ma_long_len)
+htf_trend_bullish = na(htf_close) or na(htf_ma_long) ? true : htf_close > htf_ma_long
+
+// 2) Adaptive MAs with fractal efficiency
+volatility = ta.atr(14) / math.max(close, 0.0000001)
+efficiency_length = 14
+price_change = math.abs(close - nz(close[efficiency_length], close))
+path_length  = ta.sum(math.abs(close - close[1]), efficiency_length)
+fractal_efficiency = path_length > 0 ? price_change / path_length : 0
+
+ma_long       = ta.ema(close, ma_long_len)
+ema_fast_short= ta.ema(close, ma_fast_len)
+ema_fast_med  = ta.ema(close, math.min(50,  ma_fast_len + 10))
+ema_fast_long = ta.ema(close, math.min(50,  ma_fast_len + 20))
+ema_slow_short= ta.ema(close, ma_slow_len)
+ema_slow_med  = ta.ema(close, math.min(100, ma_slow_len + 15))
+ema_slow_long = ta.ema(close, math.min(100, ma_slow_len + 30))
+
+ma_fast = use_adaptive_ma ? (fractal_efficiency > 0.5 ? ema_fast_short : fractal_efficiency > 0.3 ? ema_fast_med : ema_fast_long) : ema_fast_short
+ma_slow = use_adaptive_ma ? (fractal_efficiency > 0.5 ? ema_slow_short : fractal_efficiency > 0.3 ? ema_slow_med : ema_slow_long) : ema_slow_short
+
+// 3) Supertrend
+[st_line, st_direction] = ta.supertrend(st_factor, st_atr_len)
+
+// 4) Momentum
+rsi_raw  = ta.rsi(close, rsi_len)
+rsi_s    = ta.sma(rsi_raw, rsi_smooth)
+rsi      = na(rsi_raw) ? 50 : rsi_s
+
+rsi_prev   = nz(rsi[1], 50)
+close_prev = nz(close[1], close)
+rsi_divergence_bull = rsi > rsi_prev and close < close_prev and rsi < 50
+rsi_divergence_bear = rsi < rsi_prev and close > close_prev and rsi > 50
+
+[macd_line, signal_line, macd_histogram] = ta.macd(close, macd_fast, macd_slow, macd_signal)
+macd_line_safe     = nz(macd_line)
+signal_line_safe   = nz(signal_line)
+macd_histogram_safe= nz(macd_histogram)
+
+macd_bullish = macd_line_safe > signal_line_safe and macd_histogram_safe > nz(macd_histogram_safe[1])
+macd_bearish = macd_line_safe < signal_line_safe and macd_histogram_safe < nz(macd_histogram_safe[1])
+
+// 5) Order Flow (CVD proxy)
+rng = math.max(high - low, syminfo.mintick)
+volume_safe = math.max(nz(volume, 1), 1)
+buy_volume  = volume_safe * ((close - low) / rng)
+sell_volume = volume_safe * ((high - close) / rng)
+volume_delta= buy_volume - sell_volume
+
+cvd       = ta.cum(volume_delta)
+cvd_sma   = ta.sma(cvd, cvd_length)
+cvd_signal= ta.sma(cvd_sma, delta_smoothing)
+
+order_flow_bullish = enable_orderflow and cvd > cvd_sma and cvd_sma > cvd_signal
+order_flow_bearish = enable_orderflow and cvd < cvd_sma and cvd_sma < cvd_signal
+
+current_imbalance = volume_safe > 0 ? math.abs(volume_delta) / volume_safe : 0
+high_imbalance    = current_imbalance > imbalance_threshold
+
+// 6) SMC
+gap_up        = low > nz(high[2])
+gap_down      = high < nz(low[2])
+gap_size_up   = gap_up   ? (low - nz(high[2])) / math.max(nz(high[2]), 0.0000001) * 100 : 0
+gap_size_down = gap_down ? (nz(low[2]) - high) / math.max(nz(low[2]), 0.0000001) * 100 : 0
+significant_fvg_up   = gap_up   and gap_size_up   > fvg_threshold
+significant_fvg_down = gap_down and gap_size_down > fvg_threshold
+
+leftRight = math.max(1, int(math.floor(bos_lookback / 2)))
+swing_high = ta.pivothigh(high, leftRight, leftRight)
+swing_low  = ta.pivotlow(low,  leftRight, leftRight)
+
+var float last_swing_high = na
+var float last_swing_low  = na
+if not na(swing_high)
+    last_swing_high := swing_high
+if not na(swing_low)
+    last_swing_low  := swing_low
+
+bos_bullish = enable_smc and not na(last_swing_high) and close > last_swing_high
+bos_bearish = enable_smc and not na(last_swing_low)  and close < last_swing_low
+
+// 7) Supply/Demand Zones
+zlq = math.max(1, int(math.floor(zone_lookback / 4)))
+supply_zone_high = ta.pivothigh(high, zlq, zlq)
+demand_zone_low  = ta.pivotlow(low,  zlq, zlq)
+
+supply_zone_strength = 0
+demand_zone_strength = 0
+loopTop = math.max(1, int(math.floor(zone_lookback / 2)))
+for i = 1 to loopTop
+    if not na(supply_zone_high) and high[i] <= supply_zone_high and high[i] >= supply_zone_high * 0.998
+        supply_zone_strength += 1
+    if not na(demand_zone_low) and low[i]  >= demand_zone_low  and low[i]  <= demand_zone_low  * 1.002
+        demand_zone_strength += 1
+
+strong_supply_zone = supply_zone_strength >= zone_strength_min
+strong_demand_zone = demand_zone_strength >= zone_strength_min
+
+// 8) Market Regime
+price_sma = ta.sma(close, regime_length)
+regime_trend_strength = price_sma != 0 ? math.abs(close - price_sma) / price_sma : 0
+
+volatility_percentile_val = ta.percentile_nearest_rank(ta.atr(14), regime_length, volatility_percentile)
+current_volatility_regime = ta.atr(14) > volatility_percentile_val
+
+trending_market = regime_trend_strength > trend_strength_threshold
+ranging_market  = not trending_market
+
+// 9) Volume suite
+avg_volume_20   = ta.sma(volume_safe, 20)
+avg_volume_10   = ta.sma(volume_safe, 10)
+avg_volume_safe = math.max(nz(avg_volume_20, volume_safe), 1)
+volume_spike    = use_volume_confirmation ? (volume_safe > avg_volume_safe * volume_threshold) : true
+volume_trend_up = nz(avg_volume_10) > nz(avg_volume_20)
+
+// 10) Market Structure
+vwap_price = ta.vwap(hlc3)
+distance_from_vwap = math.abs(close - vwap_price) / math.max(close, 0.0000001)
+near_vwap = distance_from_vwap < 0.01
+
+adr = ta.sma(high - low, adr_lookback)
+current_range = high - low
+adr_safe = nz(adr, current_range)
+is_expansion_day   = current_range > adr_safe * 1.2
+is_contraction_day = current_range < adr_safe * 0.8
+
+body_size  = math.abs(close - open)
+full_range = math.max(high - low, syminfo.mintick)
+candle_body_ratio = body_size / full_range
+strong_candle = candle_body_ratio >= min_candle_body
+
+// 11) Session filter (single source of truth)
+_hr = hour(time, syminfo.timezone)
+is_asian_session  = _hr >= 21 or _hr <= 6
+is_london_session = _hr >= 7  and _hr <= 16
+is_new_york_session = _hr >= 13 and _hr <= 22
+is_overlap_session  = _hr >= 13 and _hr <= 16
+high_liquidity_session = is_london_session or is_new_york_session or is_overlap_session
+in_session = not use_session_filter or high_liquidity_session
+
+// Enhanced volatility filter
+atr_20 = ta.atr(20)
+atr_sma_50 = ta.sma(atr_20, 50)
+current_volatility_raw = atr_sma_50 != 0 ? atr_20 / atr_sma_50 : 1.0
+current_volatility = nz(current_volatility_raw, 1.0)
+low_volatility_environment = not use_news_filter or current_volatility < volatility_threshold
+
+// 12) Dynamic S/R storage
+pivot_high = ta.pivothigh(high, 10, 10)
+pivot_low  = ta.pivotlow(low, 10, 10)
+var float[] resistance_levels_array = array.new<float>()
+var float[] support_levels_array    = array.new<float>()
+
+if not na(pivot_high)
+    array.unshift(resistance_levels_array, pivot_high)
+    if array.size(resistance_levels_array) > 10
+        array.pop(resistance_levels_array)
+
+if not na(pivot_low)
+    array.unshift(support_levels_array, pivot_low)
+    if array.size(support_levels_array) > 10
+        array.pop(support_levels_array)
+
+nearest_resistance = array.size(resistance_levels_array) > 0 ? array.get(resistance_levels_array, 0) : high
+nearest_support    = array.size(support_levels_array)    > 0 ? array.get(support_levels_array, 0)    : low
+near_support    = not na(nearest_support)    and math.abs(close - nearest_support) / math.max(close, 0.0000001) < 0.01
+near_resistance = not na(nearest_resistance) and math.abs(close - nearest_resistance) / math.max(close, 0.0000001) < 0.01
+
+// █████████████████████████████████████████████████████████████████████████████████
+//                            ENHANCED ELITE SIGNAL LOGIC
+// █████████████████████████████████████████████████████████████████████████████████
+
+bull_trend_htf  = htf_trend_bullish
+bull_trend_ma   = close > ma_long
+bull_trend_ribbon = ma_fast > ma_slow
+bull_trend_st   = st_direction < 0
+bull_trend_eff  = fractal_efficiency > 0.3
+bull_trend_score = (bull_trend_htf?1:0) + (bull_trend_ma?1:0) + (bull_trend_ribbon?1:0) + (bull_trend_st?1:0) + (bull_trend_eff?1:0)
+
+bull_momentum_rsi = rsi < rsi_ob and rsi > 40
+bull_momentum_macd= macd_bullish
+bull_momentum_div = rsi_divergence_bull
+bull_momentum_score = (bull_momentum_rsi?1:0) + (bull_momentum_macd?1:0) + (bull_momentum_div?2:0)
+
+bull_structure_candle = strong_candle and close > open
+bull_structure_volume = volume_spike and volume_trend_up
+bull_structure_sr     = near_support
+bull_structure_regime = trending_market
+bull_structure_score = (bull_structure_candle?1:0) + (bull_structure_volume?1:0) + (bull_structure_sr?1:0) + (bull_structure_regime?1:0)
+
+bull_orderflow   = order_flow_bullish
+bull_imbalance   = high_imbalance and volume_delta > 0
+bull_smc_bos     = bos_bullish
+bull_fvg         = significant_fvg_up
+bull_demand_zone = strong_demand_zone and not na(demand_zone_low) and close <= demand_zone_low * 1.002
+bull_orderflow_score = (bull_orderflow?1:0) + (bull_imbalance?1:0) + (bull_smc_bos?1:0) + (bull_fvg?1:0) + (bull_demand_zone?1:0)
+
+bull_environment_session   = in_session
+bull_environment_volatility= low_volatility_environment
+bull_environment_expansion = not is_contraction_day
+bull_environment_vwap      = close > vwap_price
+bull_environment_score = (bull_environment_session?1:0) + (bull_environment_volatility?1:0) + (bull_environment_expansion?1:0) + (bull_environment_vwap?1:0)
+
+// Bear side
+bear_trend_htf  = not htf_trend_bullish
+bear_trend_ma   = close < ma_long
+bear_trend_ribbon = ma_fast < ma_slow
+bear_trend_st   = st_direction > 0
+bear_trend_eff  = fractal_efficiency > 0.3
+bear_trend_score = (bear_trend_htf?1:0) + (bear_trend_ma?1:0) + (bear_trend_ribbon?1:0) + (bear_trend_st?1:0) + (bear_trend_eff?1:0)
+
+bear_momentum_rsi = rsi > rsi_os and rsi < 60
+bear_momentum_macd= macd_bearish
+bear_momentum_div = rsi_divergence_bear
+bear_momentum_score = (bear_momentum_rsi?1:0) + (bear_momentum_macd?1:0) + (bear_momentum_div?2:0)
+
+bear_structure_candle = strong_candle and close < open
+bear_structure_volume = volume_spike
+bear_structure_sr     = near_resistance
+bear_structure_regime = trending_market
+bear_structure_score = (bear_structure_candle?1:0) + (bear_structure_volume?1:0) + (bear_structure_sr?1:0) + (bear_structure_regime?1:0)
+
+bear_orderflow   = order_flow_bearish
+bear_imbalance   = high_imbalance and volume_delta < 0
+bear_smc_bos     = bos_bearish
+bear_fvg         = significant_fvg_down
+bear_supply_zone = strong_supply_zone and not na(supply_zone_high) and close >= supply_zone_high * 0.998
+bear_orderflow_score = (bear_orderflow?1:0) + (bear_imbalance?1:0) + (bear_smc_bos?1:0) + (bear_fvg?1:0) + (bear_supply_zone?1:0)
+
+bear_environment_session   = in_session
+bear_environment_volatility= low_volatility_environment
+bear_environment_expansion = not is_contraction_day
+bear_environment_vwap      = close < vwap_price
+bear_environment_score = (bear_environment_session?1:0) + (bear_environment_volatility?1:0) + (bear_environment_expansion?1:0) + (bear_environment_vwap?1:0)
+
+// Scores
+total_bull_score = bull_trend_score + bull_momentum_score + bull_structure_score + bull_orderflow_score + bull_environment_score
+total_bear_score = bear_trend_score + bear_momentum_score + bear_structure_score + bear_orderflow_score + bear_environment_score
+max_possible_score = 19.0
+bull_strength_pct = math.max(0, math.min(100, (total_bull_score / max_possible_score) * 100))
+bear_strength_pct = math.max(0, math.min(100, (total_bear_score / max_possible_score) * 100))
+
+strength_thresholds = signal_strength_filter == "Low" ? 35 : signal_strength_filter == "Medium" ? 50 : signal_strength_filter == "High" ? 65 : 75
+required_score = math.max(6.0, (strength_thresholds / 100.0 * max_possible_score))
+
+is_buy_signal  = total_bull_score >= required_score and total_bear_score < 4
+is_sell_signal = total_bear_score >= required_score and total_bull_score < 4
+
+buy_trigger  = is_buy_signal  and not nz(is_buy_signal[1])  and barstate.isconfirmed
+sell_trigger = is_sell_signal and not nz(is_sell_signal[1]) and barstate.isconfirmed
+
+// Risk
+atr_value = ta.atr(14)
+atr_safe  = math.max(nz(atr_value, high - low), (high - low) * 0.1)
+dynamic_sl_multiplier = trending_market ? sl_atr_mult : sl_atr_mult * 1.5
+stop_loss_distance   = atr_safe * dynamic_sl_multiplier
+take_profit_distance = stop_loss_distance * tp_ratio
+
+buy_stop_loss  = close - stop_loss_distance
+buy_take_profit= close + take_profit_distance
+sell_stop_loss = close + stop_loss_distance
+sell_take_profit= close - take_profit_distance
+
+volatility_adjustment = current_volatility_regime ? 0.7 : 1.0
+signal_confidence = math.max(bull_strength_pct, bear_strength_pct) / 100.0
+position_size_multiplier = dynamic_position_sizing ? (volatility_adjustment * signal_confidence * (bull_strength_pct > 80 or bear_strength_pct > 80 ? 1.3 : 1.0)) : 1.0
+
+// █████████████████████████████████████████████████████████████████████████████████
+//                              ENHANCED VISUALIZATION
+// █████████████████████████████████████████████████████████████████████████████████
+
+color_bull_strong = color.new(#00ff88, 0)
+color_bull_medium = color.new(#00cc66, 30)
+color_bear_strong = color.new(#ff3366, 0)
+color_bear_medium = color.new(#cc0033, 30)
+
+plot(ma_long, "Institutional MA", color=color.new(color.white, 30), linewidth=3)
+p_fast = plot(ma_fast, "Fast MA", color=color.new(color.lime, 40), linewidth=2)
+p_slow = plot(ma_slow, "Slow MA", color=color.new(color.red, 40), linewidth=2)
+fill(p_fast, p_slow, color=ma_fast > ma_slow ? color.new(color.lime, 85) : color.new(color.red, 85), title="MA Ribbon")
+
+st_color = st_direction < 0 ? color.new(color.lime, 20) : color.new(color.red, 20)
+plot(st_line, "Supertrend", color=st_color, linewidth=3, style=plot.style_linebr)
+
+plot(enable_orderflow ? ta.sma(volume_delta, 10) : na, "Volume Delta", color=color.new(color.yellow, 50), display=display.data_window)
+plot(vwap_price, "VWAP", color=color.new(color.orange, 30), linewidth=2)
+
+// S/R lines
+if show_sr_levels and barstate.islast
+    for i = 0 to math.min(array.size(resistance_levels_array) - 1, 4)
+        if i < array.size(resistance_levels_array)
+            float levelR = array.get(resistance_levels_array, i)
+            line.new(bar_index - 1, levelR, bar_index + 100, levelR, extend=extend.right, color=color.new(color_bear_strong, 60), width=2, style=line.style_solid)
+    for i = 0 to math.min(array.size(support_levels_array) - 1, 4)
+        if i < array.size(support_levels_array)
+            float levelS = array.get(support_levels_array, i)
+            line.new(bar_index - 1, levelS, bar_index + 100, levelS, extend=extend.right, color=color.new(color_bull_strong, 60), width=2, style=line.style_solid)
+
+// Supply / Demand boxes
+var box[] sd_boxes = array.new_box()
+if enable_supply_demand
+    if strong_demand_zone and not na(demand_zone_low)
+        demand_bottom = demand_zone_low
+        demand_top    = demand_zone_low * 1.002
+        bx = box.new(left=bar_index - 1, top=demand_top, right=bar_index + 150, bottom=demand_bottom, bgcolor=color.new(color_bull_medium, 75), border_color=color.new(color_bull_strong, 40))
+        array.push(sd_boxes, bx)
+    if strong_supply_zone and not na(supply_zone_high)
+        supply_top    = supply_zone_high
+        supply_bottom = supply_zone_high * 0.998
+        bx = box.new(left=bar_index - 1, top=supply_top, right=bar_index + 150, bottom=supply_bottom, bgcolor=color.new(color_bear_medium, 75), border_color=color.new(color_bear_strong, 40))
+        array.push(sd_boxes, bx)
+
+// Confluence heatmap
+net_bias  = bull_strength_pct - bear_strength_pct
+heat_alpha= int(math.min(92, math.abs(net_bias)))
+heat_color= net_bias >= 0 ? color.new(color_bull_strong, 100 - heat_alpha) : color.new(color_bear_strong, 100 - heat_alpha)
+bgcolor(show_heatmap ? heat_color : na, title="Confluence Heatmap")
+
+// Signals and R/R lines
+plotshape(buy_trigger,  title="Buy Signal",  style=shape.labelup,   text="BUY",  color=color.new(color_bull_strong, 0), textcolor=color.black, location=location.belowbar, size=size.large)
+plotshape(sell_trigger, title="Sell Signal", style=shape.labeldown, text="SELL", color=color.new(color_bear_strong, 0), textcolor=color.white, location=location.abovebar, size=size.large)
+
+if show_risk_levels
+    if buy_trigger
+        sl = line.new(bar_index, buy_stop_loss,  bar_index + 200, buy_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=2, style=line.style_dotted)
+        tp = line.new(bar_index, buy_take_profit,bar_index + 200, buy_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=2, style=line.style_dotted)
+        label.new(bar_index, buy_take_profit, "TP", style=label.style_label_up,   textcolor=color.black, color=color.new(color.lime, 10))
+        label.new(bar_index, buy_stop_loss,   "SL", style=label.style_label_down, textcolor=color.white, color=color.new(color.red, 10))
+    if sell_trigger
+        sl = line.new(bar_index, sell_stop_loss,  bar_index + 200, sell_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=2, style=line.style_dotted)
+        tp = line.new(bar_index, sell_take_profit,bar_index + 200, sell_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=2, style=line.style_dotted)
+        label.new(bar_index, sell_take_profit, "TP", style=label.style_label_down, textcolor=color.white, color=color.new(color.lime, 10))
+        label.new(bar_index, sell_stop_loss,   "SL", style=label.style_label_up,   textcolor=color.black, color=color.new(color.red, 10))
+
+// Local confluence zone box
+show_zone_for_signal = show_confluence_zones
+if show_zone_for_signal and (buy_trigger or sell_trigger)
+    range_pct = 0.003
+    topZone = buy_trigger ? close * (1 + range_pct) : close * (1 - range_pct)
+    botZone = buy_trigger ? close * (1 - range_pct) : close * (1 + range_pct)
+    zcol   = buy_trigger ? color.new(color_bull_medium, 80) : color.new(color_bear_medium, 80)
+    box.new(left=bar_index - 1, top=topZone, right=bar_index + 40, bottom=botZone, bgcolor=zcol, border_color=color.new(color.white, 70))
+
+// Mini bull-bear “resistance strength” graph in a pane
+plot(show_resistance_graph ? bull_strength_pct : na, title="Bull Strength %", linewidth=2, color=color.new(color_bull_strong, 0), display=display.pane)
+plot(show_resistance_graph ? bear_strength_pct : na, title="Bear Strength %", linewidth=2, color=color.new(color_bear_strong, 0), display=display.pane)
+
+// Data table
+var table t = table.new(position.top_right, 4, 9, border_width=1)
+if show_table and barstate.islast
+    table.clear(t)
+    table.cell(t, 0, 0, "ECE Pro V2", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 0, 1, "Trend", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 0, 2, "Momentum", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 0, 3, "Struct", text_color=color.white, bgcolor=color.new(color.black, 0))
+
+    table.cell(t, 1, 0, "Bull%")
+    table.cell(t, 1, 1, str.tostring(math.round(bull_trend_score, 1)))
+    table.cell(t, 1, 2, str.tostring(math.round(bull_momentum_score, 1)))
+    table.cell(t, 1, 3, str.tostring(math.round(bull_structure_score, 1)))
+
+    table.cell(t, 2, 0, "Bear%")
+    table.cell(t, 2, 1, str.tostring(math.round(bear_trend_score, 1)))
+    table.cell(t, 2, 2, str.tostring(math.round(bear_momentum_score, 1)))
+    table.cell(t, 2, 3, str.tostring(math.round(bear_structure_score, 1)))
+
+    table.cell(t, 3, 0, "OF/SMC")
+    table.cell(t, 3, 1, str.tostring(math.round(bull_orderflow_score, 1)))
+    table.cell(t, 3, 2, str.tostring(math.round(bear_orderflow_score, 1)))
+    table.cell(t, 3, 3, "Reg." + (trending_market ? "Trend" : "Range"))
+
+    table.cell(t, 4, 0, "Bull% Total", bgcolor=color.new(color_bull_strong, 80))
+    table.cell(t, 4, 1, str.tostring(math.round(bull_strength_pct, 1)) + "%", bgcolor=color.new(color_bull_strong, 80))
+    table.cell(t, 4, 2, "Bear% Total", bgcolor=color.new(color_bear_strong, 80))
+    table.cell(t, 4, 3, str.tostring(math.round(bear_strength_pct, 1)) + "%", bgcolor=color.new(color_bear_strong, 80))
+
+    table.cell(t, 5, 0, "Req.Score")
+    table.cell(t, 5, 1, str.tostring(math.round(required_score, 2)))
+    table.cell(t, 5, 2, "Thresh")
+    table.cell(t, 5, 3, str.tostring(strength_thresholds) + "%")
+
+    table.cell(t, 6, 0, "VWAP")
+    table.cell(t, 6, 1, close > vwap_price ? "Above" : "Below")
+    table.cell(t, 6, 2, "Session")
+    table.cell(t, 6, 3, in_session ? "ON" : "OFF")
+
+    table.cell(t, 7, 0, "ATR(14)")
+    table.cell(t, 7, 1, str.tostring(math.round(atr_value, 5)))
+    table.cell(t, 7, 2, "Vol.Regime")
+    table.cell(t, 7, 3, current_volatility_regime ? "High" : "Normal")
+
+    table.cell(t, 8, 0, "Pos.Mult")
+    table.cell(t, 8, 1, str.tostring(math.round(position_size_multiplier, 2)))
+    table.cell(t, 8, 2, "RR")
+    table.cell(t, 8, 3, str.tostring(math.round(tp_ratio, 2)) + "R")
+
+// Alerts
+alert_msg_buy  = "ECE Pro V2 BUY | Bull%: " + str.tostring(math.round(bull_strength_pct, 1)) + " | SL: " + str.tostring(buy_stop_loss)  + " | TP: " + str.tostring(buy_take_profit)  + " | Pos.Mult: " + str.tostring(math.round(position_size_multiplier, 2))
+alert_msg_sell = "ECE Pro V2 SELL | Bear%: " + str.tostring(math.round(bear_strength_pct, 1)) + " | SL: " + str.tostring(sell_stop_loss) + " | TP: " + str.tostring(sell_take_profit) + " | Pos.Mult: " + str.tostring(math.round(position_size_multiplier, 2))
+alertcondition(alerts_enabled and buy_trigger,  title="ECE Pro V2: BUY",  message=alert_msg_buy)
+alertcondition(alerts_enabled and sell_trigger, title="ECE Pro V2: SELL", message=alert_msg_sell)
