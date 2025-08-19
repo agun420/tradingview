@@ -460,8 +460,13 @@ heat_color= net_bias >= 0 ? color.new(color_bull_strong, 100 - heat_alpha) : col
 bgcolor(beginner_mode ? na : (show_heatmap ? heat_color : na), title="Confluence Heatmap")
 
 // Signals and R/R lines
-plotshape(buy_trigger,  title="Buy Signal",  style=shape.labelup,   text="BUY @ " + str.tostring(close, format.mintick),  color=color.new(color_bull_strong, 0), textcolor=color.black, location=location.belowbar, size=size.auto)
-plotshape(sell_trigger, title="Sell Signal", style=shape.labeldown, text="SELL @ " + str.tostring(close, format.mintick), color=color.new(color_bear_strong, 0), textcolor=color.white, location=location.abovebar, size=size.auto)
+plotshape(buy_trigger,  title="Buy Signal Arrow",  style=shape.arrowup,   text="",  color=color.new(color_bull_strong, 0), location=location.belowbar, size=size.normal)
+plotshape(sell_trigger, title="Sell Signal Arrow", style=shape.arrowdown, text="", color=color.new(color_bear_strong, 0), location=location.abovebar, size=size.normal)
+
+if buy_trigger
+    label.new(bar_index, na, "BUY @ " + str.tostring(close, format.mintick), yloc=yloc.belowbar, style=label.style_label_up, color=color.new(color_bull_strong, 0), textcolor=color.black)
+if sell_trigger
+    label.new(bar_index, na, "SELL @ " + str.tostring(close, format.mintick), yloc=yloc.abovebar, style=label.style_label_down, color=color.new(color_bear_strong, 0), textcolor=color.white)
 
 if show_risk_levels or beginner_mode
     line_width = beginner_mode ? 3 : 2
