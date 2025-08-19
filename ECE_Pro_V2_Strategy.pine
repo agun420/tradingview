@@ -497,9 +497,9 @@ var table t = table.new(position.top_right, 4, 12, border_width=1)
 if show_table and barstate.islast
     table.clear(t, 0, 0, 3, 11)
     table.cell(t, 0, 0, "ECE Pro V2", text_color=color.white, bgcolor=color.new(color.black, 0), width=10)
-    table.cell(t, 1, 0, "Regime: " + market_regime, text_color=color.white, bgcolor=color.new(color.black, 0), colspan=3)
+    table.cell(t, 1, 0, "Regime: " + market_regime, text_color=color.white, bgcolor=color.new(color.black, 0))
 
-    table.cell(t, 0, 2, "--- CONFLUENCE ---", colspan=4, text_color=color.gray)
+    table.cell(t, 0, 2, "--- CONFLUENCE ---", text_color=color.gray)
     table.cell(t, 0, 3, "Trend", text_color=color.white, bgcolor=color.new(color.black, 0))
     table.cell(t, 1, 3, str.tostring(bull_trend_score, "0.0") + " | " + str.tostring(bear_trend_score, "0.0"), text_color=color.white, bgcolor=color.new(color.black, 0))
     table.cell(t, 2, 3, "Momentum", text_color=color.white, bgcolor=color.new(color.black, 0))
@@ -525,7 +525,7 @@ if show_table and barstate.islast
         float stdev_returns = array.stdev(returns_array)
         sharpe_ratio := stdev_returns > 0 ? avg_return / stdev_returns : na // Raw Sharpe per trade; avoids incorrect annualization
 
-    table.cell(t, 0, 6, "--- BACKTEST METRICS ---", colspan=4, text_color=color.gray)
+    table.cell(t, 0, 6, "--- BACKTEST METRICS ---", text_color=color.gray)
     table.cell(t, 0, 7, "Total Trades", text_color=color.white, bgcolor=color.new(color.black, 0))
     table.cell(t, 1, 7, str.tostring(strategy.closedtrades), text_color=color.white, bgcolor=color.new(color.black, 0))
     table.cell(t, 2, 7, "Win Rate %", text_color=color.white, bgcolor=color.new(color.black, 0))

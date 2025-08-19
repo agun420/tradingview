@@ -492,9 +492,9 @@ var table t = table.new(position.top_right, 4, 9, border_width=1)
 if show_table and barstate.islast
     table.clear(t, 0, 0, 3, 8)
     table.cell(t, 0, 0, "ECE Pro V2", text_color=color.white, bgcolor=color.new(color.black, 0), width=10)
-    table.cell(t, 1, 0, "Regime: " + market_regime, text_color=color.white, bgcolor=color.new(color.black, 0), colspan=3)
+    table.cell(t, 1, 0, "Regime: " + market_regime, text_color=color.white, bgcolor=color.new(color.black, 0))
 
-    table.cell(t, 0, 2, "--- CONFLUENCE ---", colspan=4, text_color=color.gray)
+    table.cell(t, 0, 2, "--- CONFLUENCE ---", text_color=color.gray)
     table.cell(t, 0, 3, "Category", text_color=color.gray)
     table.cell(t, 1, 3, "Bull Score", text_color=color.gray)
     table.cell(t, 2, 3, "Bear Score", text_color=color.gray)
@@ -516,7 +516,7 @@ if show_table and barstate.islast
     table.cell(t, 2, 7, str.tostring(total_bear_score, "0.0"))
 
     table.cell(t, 0, 8, "Required")
-    table.cell(t, 1, 8, str.tostring(required_score, "0.0"), colspan=2)
+    table.cell(t, 1, 8, str.tostring(required_score, "0.0"))
 
 // Alerts
 if (alerts_enabled and buy_trigger)
