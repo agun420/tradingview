@@ -465,8 +465,8 @@ heat_color= net_bias >= 0 ? color.new(color_bull_strong, 100 - heat_alpha) : col
 bgcolor(beginner_mode ? na : (show_heatmap ? heat_color : na), title="Confluence Heatmap")
 
 // Signals and R/R lines
-plotshape(buy_trigger,  title="Buy Signal",  style=shape.labelup,   text="BUY",  color=color.new(color_bull_strong, 0), textcolor=color.black, location=location.belowbar, size=size.large)
-plotshape(sell_trigger, title="Sell Signal", style=shape.labeldown, text="SELL", color=color.new(color_bear_strong, 0), textcolor=color.white, location=location.abovebar, size=size.large)
+plotshape(buy_trigger,  title="Buy Signal",  style=shape.labelup,   text="BUY @ " + str.tostring(close, format.mintick),  color=color.new(color_bull_strong, 0), textcolor=color.black, location=location.belowbar, size=size.auto)
+plotshape(sell_trigger, title="Sell Signal", style=shape.labeldown, text="SELL @ " + str.tostring(close, format.mintick), color=color.new(color_bear_strong, 0), textcolor=color.white, location=location.abovebar, size=size.auto)
 
 if show_risk_levels or beginner_mode
     line_width = beginner_mode ? 3 : 2
