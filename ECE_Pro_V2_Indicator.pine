@@ -529,7 +529,7 @@ if show_table and barstate.islast
     table.cell(t, 7, 0, "ATR(14)")
     table.cell(t, 7, 1, str.tostring(math.round(atr_value, 5)))
     table.cell(t, 7, 2, "Vol.Regime")
-    table.cell(t, 7, 3, current_volatility_regime ? "High" : "Normal")
+    table.cell(t, 7, 3, is_high_volatility ? "High" : "Normal")
 
     table.cell(t, 8, 0, "Pos.Mult")
     table.cell(t, 8, 1, str.tostring(math.round(position_size_multiplier, 2)))
