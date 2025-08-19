@@ -20,6 +20,13 @@ The `ECE_Pro_V2_Strategy.pine` script is more than just an indicator. It has bee
 *   **Dynamic Take-Profit:** In addition to a fixed Risk-to-Reward ratio, the strategy includes a **Dynamic RSI Exit** mode. This mode attempts to maximize profit by holding a trade until momentum shows signs of reversal, rather than exiting at a fixed target.
 *   **Trend Reversal Exit:** The strategy includes logic to automatically exit a trade if the underlying trend conditions significantly reverse, helping to protect profits.
 
+### New in V3: Beginner Mode
+
+To make the script more accessible for all users, a **"Beginner Mode"** has been added to the visual settings.
+
+*   **What it does:** When enabled, it hides all advanced on-chart visuals (the data table, heatmap, MA ribbons, S/R lines, etc.), leaving a clean chart that only shows the essential BUY and SELL arrows and the suggested Stop Loss/Take Profit levels for each trade.
+*   **How to use it:** Go into the script's "Settings" on your TradingView chart, find the "Visual & Alert Settings" section, and check the "Enable Beginner Mode" box.
+
 ## How to Use the **Indicator**
 
 1.  Open a chart on [TradingView](https://www.tradingview.com/).

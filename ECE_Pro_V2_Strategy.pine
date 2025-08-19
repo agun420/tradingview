@@ -75,6 +75,7 @@ dynamic_position_sizing = input.bool(true, "Dynamic Position Sizing", group=grou
 
 // I. Visual & Alert Settings
 group_visuals        = "🎨 Advanced Visuals"
+beginner_mode        = input.bool(false, "Enable Beginner Mode", tooltip="Hides all advanced visuals and tables to show only the essential BUY/SELL signals and SL/TP levels.", group=group_visuals)
 show_confluence_zones= input.bool(true, "Show Confluence Zones", group=group_visuals)
 show_sr_levels       = input.bool(true, "Show S/R Levels", group=group_visuals)
 show_table           = input.bool(true, "Show Analysis Table", group=group_visuals)
@@ -421,61 +422,64 @@ color_bull_medium = color.new(#00cc66, 30)
 color_bear_strong = color.new(#ff3366, 0)
 color_bear_medium = color.new(#cc0033, 30)
 
-plot(ma_long, "Institutional MA", color=color.new(color.white, 30), linewidth=3)
-p_fast = plot(ma_fast, "Fast MA", color=color.new(color.lime, 40), linewidth=2)
-p_slow = plot(ma_slow, "Slow MA", color=color.new(color.red, 40), linewidth=2)
-fill(p_fast, p_slow, color=ma_fast > ma_slow ? color.new(color.lime, 85) : color.new(color.red, 85), title="MA Ribbon")
+if not beginner_mode
+    plot(ma_long, "Institutional MA", color=color.new(color.white, 30), linewidth=3)
+    p_fast = plot(ma_fast, "Fast MA", color=color.new(color.lime, 40), linewidth=2)
+    p_slow = plot(ma_slow, "Slow MA", color=color.new(color.red, 40), linewidth=2)
+    fill(p_fast, p_slow, color=ma_fast > ma_slow ? color.new(color.lime, 85) : color.new(color.red, 85), title="MA Ribbon")
 
-st_color = st_direction < 0 ? color.new(color.lime, 20) : color.new(color.red, 20)
-plot(st_line, "Supertrend", color=st_color, linewidth=3, style=plot.style_linebr)
+    st_color = st_direction < 0 ? color.new(color.lime, 20) : color.new(color.red, 20)
+    plot(st_line, "Supertrend", color=st_color, linewidth=3, style=plot.style_linebr)
 
-plot(enable_orderflow ? ta.sma(volume_delta, 10) : na, "Volume Delta", color=color.new(color.yellow, 50), display=display.data_window)
-plot(vwap_price, "VWAP", color=color.new(color.orange, 30), linewidth=2)
+    plot(enable_orderflow ? ta.sma(volume_delta, 10) : na, "Volume Delta", color=color.new(color.yellow, 50), display=display.data_window)
+    plot(vwap_price, "VWAP", color=color.new(color.orange, 30), linewidth=2)
 
-// S/R lines
-if show_sr_levels and barstate.islast
-    for i = 0 to math.min(array.size(resistance_levels_array) - 1, 4)
-        if i < array.size(resistance_levels_array)
-            float levelR = array.get(resistance_levels_array, i)
-            line.new(bar_index - 1, levelR, bar_index + 100, levelR, extend=extend.right, color=color.new(color_bear_strong, 60), width=2, style=line.style_solid)
-    for i = 0 to math.min(array.size(support_levels_array) - 1, 4)
-        if i < array.size(support_levels_array)
-            float levelS = array.get(support_levels_array, i)
-            line.new(bar_index - 1, levelS, bar_index + 100, levelS, extend=extend.right, color=color.new(color_bull_strong, 60), width=2, style=line.style_solid)
+if not beginner_mode
+    // S/R lines
+    if show_sr_levels and barstate.islast
+        for i = 0 to math.min(array.size(resistance_levels_array) - 1, 4)
+            if i < array.size(resistance_levels_array)
+                float levelR = array.get(resistance_levels_array, i)
+                line.new(bar_index - 1, levelR, bar_index + 100, levelR, extend=extend.right, color=color.new(color_bear_strong, 60), width=2, style=line.style_solid)
+        for i = 0 to math.min(array.size(support_levels_array) - 1, 4)
+            if i < array.size(support_levels_array)
+                float levelS = array.get(support_levels_array, i)
+                line.new(bar_index - 1, levelS, bar_index + 100, levelS, extend=extend.right, color=color.new(color_bull_strong, 60), width=2, style=line.style_solid)
 
-// Supply / Demand boxes
-var box[] sd_boxes = array.new_box()
-if enable_supply_demand
-    if strong_demand_zone and not na(demand_zone_low)
-        demand_bottom = demand_zone_low
-        demand_top    = demand_zone_low * 1.002
-        bx = box.new(left=bar_index - 1, top=demand_top, right=bar_index + 150, bottom=demand_bottom, bgcolor=color.new(color_bull_medium, 75), border_color=color.new(color_bull_strong, 40))
-        array.push(sd_boxes, bx)
-    if strong_supply_zone and not na(supply_zone_high)
-        supply_top    = supply_zone_high
-        supply_bottom = supply_zone_high * 0.998
-        bx = box.new(left=bar_index - 1, top=supply_top, right=bar_index + 150, bottom=supply_bottom, bgcolor=color.new(color_bear_medium, 75), border_color=color.new(color_bear_strong, 40))
-        array.push(sd_boxes, bx)
+    // Supply / Demand boxes
+    var box[] sd_boxes = array.new_box()
+    if enable_supply_demand
+        if strong_demand_zone and not na(demand_zone_low)
+            demand_bottom = demand_zone_low
+            demand_top    = demand_zone_low * 1.002
+            bx = box.new(left=bar_index - 1, top=demand_top, right=bar_index + 150, bottom=demand_bottom, bgcolor=color.new(color_bull_medium, 75), border_color=color.new(color_bull_strong, 40))
+            array.push(sd_boxes, bx)
+        if strong_supply_zone and not na(supply_zone_high)
+            supply_top    = supply_zone_high
+            supply_bottom = supply_zone_high * 0.998
+            bx = box.new(left=bar_index - 1, top=supply_top, right=bar_index + 150, bottom=supply_bottom, bgcolor=color.new(color_bear_medium, 75), border_color=color.new(color_bear_strong, 40))
+            array.push(sd_boxes, bx)
 
-// Confluence heatmap
-net_bias  = bull_strength_pct - bear_strength_pct
-heat_alpha= int(math.min(92, math.abs(net_bias)))
-heat_color= net_bias >= 0 ? color.new(color_bull_strong, 100 - heat_alpha) : color.new(color_bear_strong, 100 - heat_alpha)
-bgcolor(show_heatmap ? heat_color : na, title="Confluence Heatmap")
+    // Confluence heatmap
+    net_bias  = bull_strength_pct - bear_strength_pct
+    heat_alpha= int(math.min(92, math.abs(net_bias)))
+    heat_color= net_bias >= 0 ? color.new(color_bull_strong, 100 - heat_alpha) : color.new(color_bear_strong, 100 - heat_alpha)
+    bgcolor(show_heatmap ? heat_color : na, title="Confluence Heatmap")
 
 // Signals and R/R lines
 plotshape(buy_trigger,  title="Buy Signal",  style=shape.labelup,   text="BUY",  color=color.new(color_bull_strong, 0), textcolor=color.black, location=location.belowbar, size=size.large)
 plotshape(sell_trigger, title="Sell Signal", style=shape.labeldown, text="SELL", color=color.new(color_bear_strong, 0), textcolor=color.white, location=location.abovebar, size=size.large)
 
-if show_risk_levels
+if show_risk_levels or beginner_mode
+    line_width = beginner_mode ? 3 : 2
     if buy_trigger
-        sl = line.new(bar_index, buy_stop_loss,  bar_index + 200, buy_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=2, style=line.style_dotted)
-        tp = line.new(bar_index, buy_take_profit,bar_index + 200, buy_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=2, style=line.style_dotted)
+        sl = line.new(bar_index, buy_stop_loss,  bar_index + 200, buy_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=line_width, style=line.style_dotted)
+        tp = line.new(bar_index, buy_take_profit,bar_index + 200, buy_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=line_width, style=line.style_dotted)
         label.new(bar_index, buy_take_profit, "TP", style=label.style_label_up,   textcolor=color.black, color=color.new(color.lime, 10))
         label.new(bar_index, buy_stop_loss,   "SL", style=label.style_label_down, textcolor=color.white, color=color.new(color.red, 10))
     if sell_trigger
-        sl = line.new(bar_index, sell_stop_loss,  bar_index + 200, sell_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=2, style=line.style_dotted)
-        tp = line.new(bar_index, sell_take_profit,bar_index + 200, sell_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=2, style=line.style_dotted)
+        sl = line.new(bar_index, sell_stop_loss,  bar_index + 200, sell_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=line_width, style=line.style_dotted)
+        tp = line.new(bar_index, sell_take_profit,bar_index + 200, sell_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=line_width, style=line.style_dotted)
         label.new(bar_index, sell_take_profit, "TP", style=label.style_label_down, textcolor=color.white, color=color.new(color.lime, 10))
         label.new(bar_index, sell_stop_loss,   "SL", style=label.style_label_up,   textcolor=color.black, color=color.new(color.red, 10))
 
@@ -494,7 +498,7 @@ plot(show_resistance_graph ? bear_strength_pct : na, title="Bear Strength %", li
 
 // Data table
 var table t = table.new(position.top_right, 4, 12, border_width=1)
-if show_table and barstate.islast
+if not beginner_mode and show_table and barstate.islast
     table.clear(t, 0, 0, 3, 11)
     table.cell(t, 0, 0, "ECE Pro V2", text_color=color.white, bgcolor=color.new(color.black, 0), width=10)
     table.cell(t, 1, 0, "Regime: " + market_regime, text_color=color.white, bgcolor=color.new(color.black, 0))
