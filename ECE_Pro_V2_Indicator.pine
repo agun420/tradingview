@@ -420,7 +420,7 @@ color_bear_medium = color.new(#cc0033, 30)
 plot(beginner_mode ? na : ma_long, "Institutional MA", color=color.new(color.white, 30), linewidth=3)
 p_fast = plot(beginner_mode ? na : ma_fast, "Fast MA", color=color.new(color.lime, 40), linewidth=2)
 p_slow = plot(beginner_mode ? na : ma_slow, "Slow MA", color=color.new(color.red, 40), linewidth=2)
-fill(p_fast, p_slow, color=ma_fast > ma_slow ? color.new(color.lime, 85) : color.new(color.red, 85), title="MA Ribbon")
+fill(p_fast, p_slow, color=beginner_mode ? na : (ma_fast > ma_slow ? color.new(color.lime, 85) : color.new(color.red, 85)), title="MA Ribbon")
 
 st_color = st_direction < 0 ? color.new(color.lime, 20) : color.new(color.red, 20)
 plot(beginner_mode ? na : st_line, "Supertrend", color=st_color, linewidth=3, style=plot.style_linebr)
