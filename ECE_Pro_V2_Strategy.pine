@@ -100,6 +100,17 @@ asset_class = input.string("Default", "Asset Class", options=["Default", "Crypto
 //                             ENHANCED CALCULATIONS
 // █████████████████████████████████████████████████████████████████████████████████
 
+// 0) Asset Class Optimization
+float adj_sl_atr_mult = sl_atr_mult
+bool adj_use_session_filter = use_session_filter
+
+if asset_class == "Crypto"
+    adj_sl_atr_mult := sl_atr_mult * 1.2
+    adj_use_session_filter := false
+
+if asset_class == "Forex"
+    adj_use_session_filter := true
+
 // 1) Higher Timeframe routing
 current_tf = timeframe.period
 htf_timeframe_str = current_tf == "1"   ? "5"  :
@@ -289,17 +300,6 @@ nearest_support    = array.size(support_levels_array)    > 0 ? array.get(support
 near_support    = not na(nearest_support)    and math.abs(close - nearest_support) / math.max(close, 0.0000001) < 0.01
 near_resistance = not na(nearest_resistance) and math.abs(close - nearest_resistance) / math.max(close, 0.0000001) < 0.01
 
-// 13) Asset Class Optimization
-float adj_sl_atr_mult = sl_atr_mult
-bool adj_use_session_filter = use_session_filter
-
-if asset_class == "Crypto"
-    adj_sl_atr_mult := sl_atr_mult * 1.2
-    adj_use_session_filter := false
-
-if asset_class == "Forex"
-    adj_use_session_filter := true
-
 // █████████████████████████████████████████████████████████████████████████████████
 //                            ENHANCED ELITE SIGNAL LOGIC
 // █████████████████████████████████████████████████████████████████████████████████
@@ -408,7 +408,7 @@ buy_take_profit= close + take_profit_distance
 sell_stop_loss = close + stop_loss_distance
 sell_take_profit= close - take_profit_distance
 
-volatility_adjustment = current_volatility_regime ? 0.7 : 1.0
+volatility_adjustment = is_high_volatility ? 0.7 : 1.0
 signal_confidence = math.max(bull_strength_pct, bear_strength_pct) / 100.0
 position_size_multiplier = dynamic_position_sizing ? (volatility_adjustment * signal_confidence * (bull_strength_pct > 80 or bear_strength_pct > 80 ? 1.3 : 1.0)) : 1.0
 
@@ -523,7 +523,7 @@ if show_table and barstate.islast
     if (array.size(returns_array) > 1)
         float avg_return = array.avg(returns_array)
         float stdev_returns = array.stdev(returns_array)
-        sharpe_ratio := stdev_returns > 0 ? avg_return / stdev_returns * math.sqrt(252) : na // Annualized Sharpe for daily-ish returns
+        sharpe_ratio := stdev_returns > 0 ? avg_return / stdev_returns : na // Raw Sharpe per trade; avoids incorrect annualization
 
     table.cell(t, 0, 6, "--- BACKTEST METRICS ---", colspan=4, text_color=color.gray)
     table.cell(t, 0, 7, "Total Trades", text_color=color.white, bgcolor=color.new(color.black, 0))
