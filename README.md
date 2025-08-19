@@ -2,6 +2,17 @@
 
 This repository contains a professional-grade trading toolkit for TradingView, featuring both a sophisticated signal indicator and a fully backtestable strategy version. This allows for both real-time signal analysis and rigorous historical performance testing.
 
+## New in V4: Performance & Usability Overhaul
+
+Based on expert feedback regarding complexity and performance, this version introduces major new features to make the script more robust, practical, and user-friendly.
+
+*   **Tuning Presets:** Located in the new "🚀 Performance & Presets" section of the settings, you can now choose between several tuning presets:
+    *   `Custom`: Uses your manual settings below.
+    *   `Balanced`: A good starting point for all-around performance.
+    *   `High Frequency`: Adjusts weights and thresholds to generate more signals, potentially capturing smaller moves.
+    *   `High Confluence`: Uses stricter settings, waiting for only the highest probability setups.
+*   **Performance Mode:** You can now choose between `Full` and `Fast` mode. `Fast` mode disables the most computationally heavy features (like Supply/Demand analysis and the data table) to ensure the script runs smoothly on any device or chart.
+
 ## Project Overview
 
 The core of this project is the "Elite Confluence Engine," a powerful Pine Script that uses a multi-faceted scoring system to identify high-probability trading setups. It analyzes Trend, Momentum, Market Structure, Order Flow, and Smart Money Concepts to generate a confluence score for both bullish and bearish scenarios.

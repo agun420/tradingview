@@ -6,7 +6,12 @@ indicator("Elite Confluence Engine Pro V2", "ECE Pro V2", overlay=true, max_boxe
 //                                ENHANCED CORE INPUTS
 // █████████████████████████████████████████████████████████████████████████████████
 
-// A. Multi-Timeframe Trend Engine
+// A. Performance & Presets
+group_presets = "🚀 Performance & Presets"
+performance_mode = input.string("Full", "Performance Mode", options=["Full", "Fast"], group=group_presets, tooltip="'Fast' mode disables the most resource-heavy calculations (S/D Zones, CVD, Tables) for a smoother experience.")
+tuning_preset = input.string("Custom", "Tuning Preset", options=["Custom", "Balanced", "High Frequency", "High Confluence"], group=group_presets, tooltip="'Custom' uses your manual settings below. Other presets will override some settings for a good starting point.")
+
+// B. Multi-Timeframe Trend Engine
 group_trend = "🎯 Multi-Timeframe Trend Engine"
 htf_multiplier = input.int(4, "Higher Timeframe Multiplier", minval=2, maxval=20, group=group_trend)
 ma_long_len   = input.int(200, "Institutional MA Length", minval=50, maxval=500, group=group_trend)
@@ -111,7 +116,23 @@ if asset_class == "Crypto"
 if asset_class == "Forex"
     adj_use_session_filter := true
 
-// 1) Higher Timeframe routing
+// 1A) Tuning Preset Logic
+var float adj_trend_weight = trend_weight
+var float adj_momentum_weight = momentum_weight
+var float adj_structure_weight = structure_weight
+var float adj_orderflow_weight = orderflow_weight
+var float adj_environment_weight = environment_weight
+var string adj_signal_strength_filter = signal_strength_filter
+
+if tuning_preset != "Custom"
+    adj_trend_weight := tuning_preset == "High Confluence" ? 1.2 : (tuning_preset == "High Frequency" ? 0.8 : 1.0)
+    adj_momentum_weight := tuning_preset == "High Confluence" ? 1.2 : (tuning_preset == "High Frequency" ? 1.0 : 1.0)
+    adj_structure_weight := tuning_preset == "High Confluence" ? 1.0 : (tuning_preset == "High Frequency" ? 0.8 : 1.0)
+    adj_orderflow_weight := tuning_preset == "High Confluence" ? 1.5 : (tuning_preset == "High Frequency" ? 0.7 : 1.0)
+    adj_environment_weight := tuning_preset == "High Confluence" ? 1.0 : (tuning_preset == "High Frequency" ? 0.7 : 1.0)
+    adj_signal_strength_filter := tuning_preset == "High Confluence" ? "High" : (tuning_preset == "High Frequency" ? "Low" : "Medium")
+
+// 1B) Higher Timeframe routing
 current_tf = timeframe.period
 htf_timeframe_str = current_tf == "1"   ? "5"  :
      current_tf == "5"   ? "15" :
@@ -212,14 +233,24 @@ zlq = math.max(1, int(math.floor(zone_lookback / 4)))
 supply_zone_high = ta.pivothigh(high, zlq, zlq)
 demand_zone_low  = ta.pivotlow(low,  zlq, zlq)
 
-supply_zone_strength = 0
-demand_zone_strength = 0
-loopTop = math.max(1, int(math.floor(zone_lookback / 2)))
-for i = 1 to loopTop
-    if not na(supply_zone_high) and high[i] <= supply_zone_high and high[i] >= supply_zone_high * 0.998
-        supply_zone_strength += 1
-    if not na(demand_zone_low) and low[i]  >= demand_zone_low  and low[i]  <= demand_zone_low  * 1.002
-        demand_zone_strength += 1
+var int supply_zone_strength = 0
+var int demand_zone_strength = 0
+
+if not na(supply_zone_high) or not na(demand_zone_low)
+    // A new pivot has been detected, recalculate strength
+    new_supply_strength = 0
+    new_demand_strength = 0
+    loopTop = math.max(1, int(math.floor(zone_lookback / 2)))
+    for i = 1 to loopTop
+        if not na(supply_zone_high) and high[i] <= supply_zone_high and high[i] >= supply_zone_high * 0.998
+            new_supply_strength += 1
+        if not na(demand_zone_low) and low[i]  >= demand_zone_low  and low[i]  <= demand_zone_low  * 1.002
+            new_demand_strength += 1
+
+    if not na(supply_zone_high)
+        supply_zone_strength := new_supply_strength
+    if not na(demand_zone_low)
+        demand_zone_strength := new_demand_strength
 
 strong_supply_zone = supply_zone_strength >= zone_strength_min
 strong_demand_zone = demand_zone_strength >= zone_strength_min
@@ -322,11 +353,11 @@ bull_structure_sr     = near_support
 bull_structure_regime = market_regime == "Trending"
 bull_structure_score = (bull_structure_candle?1:0) + (bull_structure_volume?1:0) + (bull_structure_sr?1:0) + (bull_structure_regime?1:0)
 
-bull_orderflow   = order_flow_bullish
-bull_imbalance   = high_imbalance and volume_delta > 0
-bull_smc_bos     = bos_bullish
-bull_fvg         = significant_fvg_up
-bull_demand_zone = strong_demand_zone and not na(demand_zone_low) and close <= demand_zone_low * 1.002
+bull_orderflow   = performance_mode == "Full" and order_flow_bullish
+bull_imbalance   = performance_mode == "Full" and high_imbalance and volume_delta > 0
+bull_smc_bos     = bos_bullish // Keep BOS as it's lightweight
+bull_fvg         = performance_mode == "Full" and significant_fvg_up
+bull_demand_zone = performance_mode == "Full" and enable_supply_demand and strong_demand_zone and not na(demand_zone_low) and close <= demand_zone_low * 1.002
 bull_orderflow_score = (bull_orderflow?1:0) + (bull_imbalance?1:0) + (bull_smc_bos?1:0) + (bull_fvg?1:0) + (bull_demand_zone?1:0)
 
 bull_environment_session   = in_session
@@ -354,11 +385,11 @@ bear_structure_sr     = near_resistance
 bear_structure_regime = market_regime == "Trending"
 bear_structure_score = (bear_structure_candle?1:0) + (bear_structure_volume?1:0) + (bear_structure_sr?1:0) + (bear_structure_regime?1:0)
 
-bear_orderflow   = order_flow_bearish
-bear_imbalance   = high_imbalance and volume_delta < 0
-bear_smc_bos     = bos_bearish
-bear_fvg         = significant_fvg_down
-bear_supply_zone = strong_supply_zone and not na(supply_zone_high) and close >= supply_zone_high * 0.998
+bear_orderflow   = performance_mode == "Full" and order_flow_bearish
+bear_imbalance   = performance_mode == "Full" and high_imbalance and volume_delta < 0
+bear_smc_bos     = bos_bearish // Keep BOS as it's lightweight
+bear_fvg         = performance_mode == "Full" and significant_fvg_down
+bear_supply_zone = performance_mode == "Full" and enable_supply_demand and strong_supply_zone and not na(supply_zone_high) and close >= supply_zone_high * 0.998
 bear_orderflow_score = (bear_orderflow?1:0) + (bear_imbalance?1:0) + (bear_smc_bos?1:0) + (bear_fvg?1:0) + (bear_supply_zone?1:0)
 
 bear_environment_session   = in_session
@@ -368,20 +399,20 @@ bear_environment_vwap      = close < vwap_price
 bear_environment_score = (bear_environment_session?1:0) + (bear_environment_volatility?1:0) + (bear_environment_expansion?1:0) + (bear_environment_vwap?1:0)
 
 // Scores
-total_bull_score = (bull_trend_score * trend_weight) + (bull_momentum_score * momentum_weight) + (bull_structure_score * structure_weight) + (bull_orderflow_score * orderflow_weight) + (bull_environment_score * environment_weight)
-total_bear_score = (bear_trend_score * trend_weight) + (bear_momentum_score * momentum_weight) + (bear_structure_score * structure_weight) + (bear_orderflow_score * orderflow_weight) + (bear_environment_score * environment_weight)
+total_bull_score = (bull_trend_score * adj_trend_weight) + (bull_momentum_score * adj_momentum_weight) + (bull_structure_score * adj_structure_weight) + (bull_orderflow_score * adj_orderflow_weight) + (bull_environment_score * adj_environment_weight)
+total_bear_score = (bear_trend_score * adj_trend_weight) + (bear_momentum_score * adj_momentum_weight) + (bear_structure_score * adj_structure_weight) + (bear_orderflow_score * adj_orderflow_weight) + (bear_environment_score * adj_environment_weight)
 
-max_trend_score = 5 * trend_weight
-max_momentum_score = 4 * momentum_weight
-max_structure_score = 4 * structure_weight
-max_orderflow_score = 5 * orderflow_weight
-max_environment_score = 4 * environment_weight
+max_trend_score = 5 * adj_trend_weight
+max_momentum_score = 4 * adj_momentum_weight
+max_structure_score = 4 * adj_structure_weight
+max_orderflow_score = 5 * adj_orderflow_weight
+max_environment_score = 4 * adj_environment_weight
 max_possible_score = max_trend_score + max_momentum_score + max_structure_score + max_orderflow_score + max_environment_score
 
 bull_strength_pct = max_possible_score > 0 ? math.max(0, math.min(100, (total_bull_score / max_possible_score) * 100)) : 0
 bear_strength_pct = max_possible_score > 0 ? math.max(0, math.min(100, (total_bear_score / max_possible_score) * 100)) : 0
 
-strength_thresholds = signal_strength_filter == "Low" ? 35 : signal_strength_filter == "Medium" ? 50 : signal_strength_filter == "High" ? 65 : 75
+strength_thresholds = adj_signal_strength_filter == "Low" ? 35 : adj_signal_strength_filter == "Medium" ? 50 : adj_signal_strength_filter == "High" ? 65 : 75
 base_required_score = (strength_thresholds / 100.0 * max_possible_score)
 regime_multiplier = market_regime == "Volatile" ? volatile_multiplier : market_regime == "Ranging" ? ranging_multiplier : 1.0
 required_score = base_required_score * regime_multiplier
@@ -441,7 +472,7 @@ if not beginner_mode and show_sr_levels and barstate.islast
 
 // Supply / Demand boxes
 var box[] sd_boxes = array.new_box()
-if not beginner_mode and enable_supply_demand
+if not beginner_mode and performance_mode == "Full" and enable_supply_demand
     if strong_demand_zone and not na(demand_zone_low)
         demand_bottom = demand_zone_low
         demand_top    = demand_zone_low * 1.002
@@ -496,7 +527,7 @@ plot(show_resistance_graph ? bear_strength_pct : na, title="Bear Strength %", li
 
 // Data table
 var table t = table.new(position.top_right, 4, 9, border_width=1)
-if not beginner_mode and show_table and barstate.islast
+if not beginner_mode and performance_mode == "Full" and show_table and barstate.islast
     table.clear(t, 0, 0, 3, 8)
     table.cell(t, 0, 0, "ECE Pro V2", text_color=color.white, bgcolor=color.new(color.black, 0), width=10)
     table.cell(t, 1, 0, "Regime: " + market_regime, text_color=color.white, bgcolor=color.new(color.black, 0))
