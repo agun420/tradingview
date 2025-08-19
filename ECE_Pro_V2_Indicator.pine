@@ -417,49 +417,47 @@ color_bull_medium = color.new(#00cc66, 30)
 color_bear_strong = color.new(#ff3366, 0)
 color_bear_medium = color.new(#cc0033, 30)
 
-if not beginner_mode
-    plot(ma_long, "Institutional MA", color=color.new(color.white, 30), linewidth=3)
-    p_fast = plot(ma_fast, "Fast MA", color=color.new(color.lime, 40), linewidth=2)
-    p_slow = plot(ma_slow, "Slow MA", color=color.new(color.red, 40), linewidth=2)
-    fill(p_fast, p_slow, color=ma_fast > ma_slow ? color.new(color.lime, 85) : color.new(color.red, 85), title="MA Ribbon")
+plot(beginner_mode ? na : ma_long, "Institutional MA", color=color.new(color.white, 30), linewidth=3)
+p_fast = plot(beginner_mode ? na : ma_fast, "Fast MA", color=color.new(color.lime, 40), linewidth=2)
+p_slow = plot(beginner_mode ? na : ma_slow, "Slow MA", color=color.new(color.red, 40), linewidth=2)
+fill(p_fast, p_slow, color=ma_fast > ma_slow ? color.new(color.lime, 85) : color.new(color.red, 85), title="MA Ribbon")
 
-    st_color = st_direction < 0 ? color.new(color.lime, 20) : color.new(color.red, 20)
-    plot(st_line, "Supertrend", color=st_color, linewidth=3, style=plot.style_linebr)
+st_color = st_direction < 0 ? color.new(color.lime, 20) : color.new(color.red, 20)
+plot(beginner_mode ? na : st_line, "Supertrend", color=st_color, linewidth=3, style=plot.style_linebr)
 
-    plot(enable_orderflow ? ta.sma(volume_delta, 10) : na, "Volume Delta", color=color.new(color.yellow, 50), display=display.data_window)
-    plot(vwap_price, "VWAP", color=color.new(color.orange, 30), linewidth=2)
+plot(beginner_mode ? na : (enable_orderflow ? ta.sma(volume_delta, 10) : na), "Volume Delta", color=color.new(color.yellow, 50), display=display.data_window)
+plot(beginner_mode ? na : vwap_price, "VWAP", color=color.new(color.orange, 30), linewidth=2)
 
-if not beginner_mode
-    // S/R lines
-    if show_sr_levels and barstate.islast
-        for i = 0 to math.min(array.size(resistance_levels_array) - 1, 4)
-            if i < array.size(resistance_levels_array)
-                float levelR = array.get(resistance_levels_array, i)
-                line.new(bar_index - 1, levelR, bar_index + 100, levelR, extend=extend.right, color=color.new(color_bear_strong, 60), width=2, style=line.style_solid)
-        for i = 0 to math.min(array.size(support_levels_array) - 1, 4)
-            if i < array.size(support_levels_array)
-                float levelS = array.get(support_levels_array, i)
-                line.new(bar_index - 1, levelS, bar_index + 100, levelS, extend=extend.right, color=color.new(color_bull_strong, 60), width=2, style=line.style_solid)
+// S/R lines
+if not beginner_mode and show_sr_levels and barstate.islast
+    for i = 0 to math.min(array.size(resistance_levels_array) - 1, 4)
+        if i < array.size(resistance_levels_array)
+            float levelR = array.get(resistance_levels_array, i)
+            line.new(bar_index - 1, levelR, bar_index + 100, levelR, extend=extend.right, color=color.new(color_bear_strong, 60), width=2, style=line.style_solid)
+    for i = 0 to math.min(array.size(support_levels_array) - 1, 4)
+        if i < array.size(support_levels_array)
+            float levelS = array.get(support_levels_array, i)
+            line.new(bar_index - 1, levelS, bar_index + 100, levelS, extend=extend.right, color=color.new(color_bull_strong, 60), width=2, style=line.style_solid)
 
-    // Supply / Demand boxes
-    var box[] sd_boxes = array.new_box()
-    if enable_supply_demand
-        if strong_demand_zone and not na(demand_zone_low)
-            demand_bottom = demand_zone_low
-            demand_top    = demand_zone_low * 1.002
-            bx = box.new(left=bar_index - 1, top=demand_top, right=bar_index + 150, bottom=demand_bottom, bgcolor=color.new(color_bull_medium, 75), border_color=color.new(color_bull_strong, 40))
-            array.push(sd_boxes, bx)
-        if strong_supply_zone and not na(supply_zone_high)
-            supply_top    = supply_zone_high
-            supply_bottom = supply_zone_high * 0.998
-            bx = box.new(left=bar_index - 1, top=supply_top, right=bar_index + 150, bottom=supply_bottom, bgcolor=color.new(color_bear_medium, 75), border_color=color.new(color_bear_strong, 40))
-            array.push(sd_boxes, bx)
+// Supply / Demand boxes
+var box[] sd_boxes = array.new_box()
+if not beginner_mode and enable_supply_demand
+    if strong_demand_zone and not na(demand_zone_low)
+        demand_bottom = demand_zone_low
+        demand_top    = demand_zone_low * 1.002
+        bx = box.new(left=bar_index - 1, top=demand_top, right=bar_index + 150, bottom=demand_bottom, bgcolor=color.new(color_bull_medium, 75), border_color=color.new(color_bull_strong, 40))
+        array.push(sd_boxes, bx)
+    if strong_supply_zone and not na(supply_zone_high)
+        supply_top    = supply_zone_high
+        supply_bottom = supply_zone_high * 0.998
+        bx = box.new(left=bar_index - 1, top=supply_top, right=bar_index + 150, bottom=supply_bottom, bgcolor=color.new(color_bear_medium, 75), border_color=color.new(color_bear_strong, 40))
+        array.push(sd_boxes, bx)
 
-    // Confluence heatmap
-    net_bias  = bull_strength_pct - bear_strength_pct
-    heat_alpha= int(math.min(92, math.abs(net_bias)))
-    heat_color= net_bias >= 0 ? color.new(color_bull_strong, 100 - heat_alpha) : color.new(color_bear_strong, 100 - heat_alpha)
-    bgcolor(show_heatmap ? heat_color : na, title="Confluence Heatmap")
+// Confluence heatmap
+net_bias  = bull_strength_pct - bear_strength_pct
+heat_alpha= int(math.min(92, math.abs(net_bias)))
+heat_color= net_bias >= 0 ? color.new(color_bull_strong, 100 - heat_alpha) : color.new(color_bear_strong, 100 - heat_alpha)
+bgcolor(beginner_mode ? na : (show_heatmap ? heat_color : na), title="Confluence Heatmap")
 
 // Signals and R/R lines
 plotshape(buy_trigger,  title="Buy Signal",  style=shape.labelup,   text="BUY",  color=color.new(color_bull_strong, 0), textcolor=color.black, location=location.belowbar, size=size.large)
