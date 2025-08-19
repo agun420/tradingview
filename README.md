@@ -24,7 +24,7 @@ The `ECE_Pro_V2_Strategy.pine` script is more than just an indicator. It has bee
 
 To make the script more accessible for all users, a **"Beginner Mode"** has been added to the visual settings.
 
-*   **What it does:** When enabled, it hides all advanced on-chart visuals (the data table, heatmap, MA ribbons, S/R lines, etc.), leaving a clean chart that only shows the essential BUY and SELL arrows and the suggested Stop Loss/Take Profit levels for each trade.
+*   **What it does:** When enabled, it hides all advanced on-chart visuals (the data table, heatmap, MA ribbons, S/R lines, etc.), leaving a clean chart that only shows the essential BUY and SELL arrows and the suggested Stop Loss/Take Profit levels for each trade, labeled with their exact prices.
 *   **How to use it:** Go into the script's "Settings" on your TradingView chart, find the "Visual & Alert Settings" section, and check the "Enable Beginner Mode" box.
 
 ## How to Use the **Indicator**

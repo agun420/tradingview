@@ -473,13 +473,13 @@ if show_risk_levels or beginner_mode
     if buy_trigger
         sl = line.new(bar_index, buy_stop_loss,  bar_index + 200, buy_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=line_width, style=line.style_dotted)
         tp = line.new(bar_index, buy_take_profit,bar_index + 200, buy_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=line_width, style=line.style_dotted)
-        label.new(bar_index, buy_take_profit, "TP", style=label.style_label_up,   textcolor=color.black, color=color.new(color.lime, 10))
-        label.new(bar_index, buy_stop_loss,   "SL", style=label.style_label_down, textcolor=color.white, color=color.new(color.red, 10))
+        label.new(bar_index + 2, buy_take_profit, "TP: " + str.tostring(buy_take_profit, format.mintick), style=label.style_label_up,   textcolor=color.black, color=color.new(color.lime, 10), textalign=text.align_left)
+        label.new(bar_index + 2, buy_stop_loss,   "SL: " + str.tostring(buy_stop_loss, format.mintick), style=label.style_label_down, textcolor=color.white, color=color.new(color.red, 10), textalign=text.align_left)
     if sell_trigger
         sl = line.new(bar_index, sell_stop_loss,  bar_index + 200, sell_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=line_width, style=line.style_dotted)
         tp = line.new(bar_index, sell_take_profit,bar_index + 200, sell_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=line_width, style=line.style_dotted)
-        label.new(bar_index, sell_take_profit, "TP", style=label.style_label_down, textcolor=color.white, color=color.new(color.lime, 10))
-        label.new(bar_index, sell_stop_loss,   "SL", style=label.style_label_up,   textcolor=color.black, color=color.new(color.red, 10))
+        label.new(bar_index + 2, sell_take_profit, "TP: " + str.tostring(sell_take_profit, format.mintick), style=label.style_label_down, textcolor=color.white, color=color.new(color.lime, 10), textalign=text.align_left)
+        label.new(bar_index + 2, sell_stop_loss,   "SL: " + str.tostring(sell_stop_loss, format.mintick), style=label.style_label_up,   textcolor=color.black, color=color.new(color.red, 10), textalign=text.align_left)
 
 // Local confluence zone box
 show_zone_for_signal = show_confluence_zones
