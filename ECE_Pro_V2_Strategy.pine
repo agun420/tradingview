@@ -344,8 +344,8 @@ required_score = math.max(6.0, (strength_thresholds / 100.0 * max_possible_score
 is_buy_signal  = total_bull_score >= required_score and total_bear_score < 4
 is_sell_signal = total_bear_score >= required_score and total_bull_score < 4
 
-buy_trigger  = is_buy_signal  and not nz(is_buy_signal[1])  and barstate.isconfirmed
-sell_trigger = is_sell_signal and not nz(is_sell_signal[1]) and barstate.isconfirmed
+buy_trigger  = is_buy_signal  and not is_buy_signal[1]  and barstate.isconfirmed
+sell_trigger = is_sell_signal and not is_sell_signal[1] and barstate.isconfirmed
 
 // Dynamic Exit
 long_exit_dynamic = ta.crossunder(rsi, rsi_ob)

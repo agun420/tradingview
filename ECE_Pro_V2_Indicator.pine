@@ -343,8 +343,8 @@ required_score = math.max(6.0, (strength_thresholds / 100.0 * max_possible_score
 is_buy_signal  = total_bull_score >= required_score and total_bear_score < 4
 is_sell_signal = total_bear_score >= required_score and total_bull_score < 4
 
-buy_trigger  = is_buy_signal  and not nz(is_buy_signal[1])  and barstate.isconfirmed
-sell_trigger = is_sell_signal and not nz(is_sell_signal[1]) and barstate.isconfirmed
+buy_trigger  = is_buy_signal  and not is_buy_signal[1]  and barstate.isconfirmed
+sell_trigger = is_sell_signal and not is_sell_signal[1] and barstate.isconfirmed
 
 // Risk
 atr_value = ta.atr(14)
@@ -492,7 +492,10 @@ if show_table and barstate.islast
     table.cell(t, 8, 3, str.tostring(math.round(tp_ratio, 2)) + "R")
 
 // Alerts
-alert_msg_buy  = "ECE Pro V2 BUY | Bull%: " + str.tostring(math.round(bull_strength_pct, 1)) + " | SL: " + str.tostring(buy_stop_loss)  + " | TP: " + str.tostring(buy_take_profit)  + " | Pos.Mult: " + str.tostring(math.round(position_size_multiplier, 2))
-alert_msg_sell = "ECE Pro V2 SELL | Bear%: " + str.tostring(math.round(bear_strength_pct, 1)) + " | SL: " + str.tostring(sell_stop_loss) + " | TP: " + str.tostring(sell_take_profit) + " | Pos.Mult: " + str.tostring(math.round(position_size_multiplier, 2))
-alertcondition(alerts_enabled and buy_trigger,  title="ECE Pro V2: BUY",  message=alert_msg_buy)
-alertcondition(alerts_enabled and sell_trigger, title="ECE Pro V2: SELL", message=alert_msg_sell)
+if (alerts_enabled and buy_trigger)
+    alert_msg_buy  = "ECE Pro V2 BUY | Bull%: " + str.tostring(math.round(bull_strength_pct, 1)) + " | SL: " + str.tostring(buy_stop_loss)  + " | TP: " + str.tostring(buy_take_profit)  + " | Pos.Mult: " + str.tostring(math.round(position_size_multiplier, 2))
+    alert(alert_msg_buy, freq = alert.freq_once_per_bar_close)
+
+if (alerts_enabled and sell_trigger)
+    alert_msg_sell = "ECE Pro V2 SELL | Bear%: " + str.tostring(math.round(bear_strength_pct, 1)) + " | SL: " + str.tostring(sell_stop_loss) + " | TP: " + str.tostring(sell_take_profit) + " | Pos.Mult: " + str.tostring(math.round(position_size_multiplier, 2))
+    alert(alert_msg_sell, freq = alert.freq_once_per_bar_close)
