@@ -52,7 +52,9 @@ show_resistance_graph = input.bool(true, "Show Resistance Strength Graph", group
 group_regime            = "🌊 Market Regime & Volatility Analysis"
 regime_length           = input.int(50, "Market Regime Detection Length", minval=20, maxval=100, group=group_regime)
 volatility_percentile   = input.int(80, "High Volatility Percentile", minval=70, maxval=95, group=group_regime)
-trend_strength_threshold= input.float(0.6, "Trend Strength Threshold", minval=0.3, maxval=0.9, step=0.1, group=group_regime)
+trend_strength_threshold= input.float(0.6, "Trend Strength Threshold (Old)", tooltip="This is the old trend detection method, new method uses ADX.", minval=0.3, maxval=0.9, step=0.1, group=group_regime)
+adx_len = input.int(14, "ADX Length", group=group_regime, minval=5, maxval=50)
+adx_threshold = input.float(25, "ADX Trend Threshold", group=group_regime, minval=15, maxval=40)
 
 // G. Market Structure & Quality Filters
 group_structure     = "🏗️ Enhanced Market Structure"
@@ -80,6 +82,20 @@ show_heatmap         = input.bool(true, "Show Confluence Heatmap", group=group_v
 signal_strength_filter = input.string("Medium", "Minimum Signal Strength", options=["Low","Medium","High","Maximum"], group=group_visuals)
 alerts_enabled       = input.bool(true, "Enable All Alerts", group=group_visuals)
 
+// J. Signal Scoring & Weights
+group_weights = "⚖️ Signal Scoring & Weights"
+trend_weight = input.float(1.0, "Trend Weight", group=group_weights, minval=0.0, maxval=5.0, step=0.1)
+momentum_weight = input.float(1.0, "Momentum Weight", group=group_weights, minval=0.0, maxval=5.0, step=0.1)
+structure_weight = input.float(1.0, "Structure Weight", group=group_weights, minval=0.0, maxval=5.0, step=0.1)
+orderflow_weight = input.float(1.0, "Orderflow/SMC Weight", group=group_weights, minval=0.0, maxval=5.0, step=0.1)
+environment_weight = input.float(1.0, "Environment Weight", group=group_weights, minval=0.0, maxval=5.0, step=0.1)
+ranging_multiplier = input.float(1.2, "Ranging Regime Score Multiplier", group=group_weights, minval=1.0, maxval=2.0, step=0.1, tooltip="Increases the required score in ranging markets to filter for stronger signals.")
+volatile_multiplier = input.float(1.5, "Volatile Regime Score Multiplier", group=group_weights, minval=1.0, maxval=3.0, step=0.1, tooltip="Significantly increases the required score in volatile markets to avoid noise and whipsaws.")
+
+// K. Asset Class Optimization
+group_asset = "⚙️ Asset Class Optimization"
+asset_class = input.string("Default", "Asset Class", options=["Default", "Crypto", "Forex"], group=group_asset, tooltip="Optimizes certain parameters for the selected asset class.")
+
 // █████████████████████████████████████████████████████████████████████████████████
 //                             ENHANCED CALCULATIONS
 // █████████████████████████████████████████████████████████████████████████████████
@@ -95,8 +111,11 @@ htf_timeframe_str = current_tf == "1"   ? "5"  :
      current_tf == "1D"  ? "1W" : "1D"
 
 use_htf = htf_timeframe_str != current_tf
-htf_close    = use_htf ? request.security(syminfo.tickerid, htf_timeframe_str, close,      lookahead=barmerge.lookahead_off) : close
-htf_ma_long  = use_htf ? request.security(syminfo.tickerid, htf_timeframe_str, ta.ema(close, ma_long_len), lookahead=barmerge.lookahead_off) : ta.ema(close, ma_long_len)
+// Non-repainting security calls
+htf_close_raw = use_htf ? request.security(syminfo.tickerid, htf_timeframe_str, close, lookahead=barmerge.lookahead_off) : close
+htf_ma_long_raw = use_htf ? request.security(syminfo.tickerid, htf_timeframe_str, ta.ema(close, ma_long_len), lookahead=barmerge.lookahead_off) : ta.ema(close, ma_long_len)
+htf_close = htf_close_raw[1]
+htf_ma_long = htf_ma_long_raw[1]
 htf_trend_bullish = na(htf_close) or na(htf_ma_long) ? true : htf_close > htf_ma_long
 
 // 2) Adaptive MAs with fractal efficiency
@@ -195,14 +214,20 @@ strong_supply_zone = supply_zone_strength >= zone_strength_min
 strong_demand_zone = demand_zone_strength >= zone_strength_min
 
 // 8) Market Regime
-price_sma = ta.sma(close, regime_length)
-regime_trend_strength = price_sma != 0 ? math.abs(close - price_sma) / price_sma : 0
+[di_plus, di_minus, adx] = ta.dmi(adx_len, adx_len)
+is_trending_by_adx = adx > adx_threshold
 
 volatility_percentile_val = ta.percentile_nearest_rank(ta.atr(14), regime_length, volatility_percentile)
-current_volatility_regime = ta.atr(14) > volatility_percentile_val
+is_high_volatility = ta.atr(14) > volatility_percentile_val
 
-trending_market = regime_trend_strength > trend_strength_threshold
-ranging_market  = not trending_market
+string market_regime = na
+if (is_high_volatility)
+    market_regime := "Volatile"
+else if (is_trending_by_adx)
+    market_regime := "Trending"
+else
+    market_regime := "Ranging"
+
 
 // 9) Volume suite
 avg_volume_20   = ta.sma(volume_safe, 20)
@@ -234,7 +259,7 @@ is_london_session = _hr >= 7  and _hr <= 16
 is_new_york_session = _hr >= 13 and _hr <= 22
 is_overlap_session  = _hr >= 13 and _hr <= 16
 high_liquidity_session = is_london_session or is_new_york_session or is_overlap_session
-in_session = not use_session_filter or high_liquidity_session
+in_session = not adj_use_session_filter or high_liquidity_session
 
 // Enhanced volatility filter
 atr_20 = ta.atr(20)
@@ -264,6 +289,17 @@ nearest_support    = array.size(support_levels_array)    > 0 ? array.get(support
 near_support    = not na(nearest_support)    and math.abs(close - nearest_support) / math.max(close, 0.0000001) < 0.01
 near_resistance = not na(nearest_resistance) and math.abs(close - nearest_resistance) / math.max(close, 0.0000001) < 0.01
 
+// 13) Asset Class Optimization
+float adj_sl_atr_mult = sl_atr_mult
+bool adj_use_session_filter = use_session_filter
+
+if asset_class == "Crypto"
+    adj_sl_atr_mult := sl_atr_mult * 1.2
+    adj_use_session_filter := false
+
+if asset_class == "Forex"
+    adj_use_session_filter := true
+
 // █████████████████████████████████████████████████████████████████████████████████
 //                            ENHANCED ELITE SIGNAL LOGIC
 // █████████████████████████████████████████████████████████████████████████████████
@@ -283,7 +319,7 @@ bull_momentum_score = (bull_momentum_rsi?1:0) + (bull_momentum_macd?1:0) + (bull
 bull_structure_candle = strong_candle and close > open
 bull_structure_volume = volume_spike and volume_trend_up
 bull_structure_sr     = near_support
-bull_structure_regime = trending_market
+bull_structure_regime = market_regime == "Trending"
 bull_structure_score = (bull_structure_candle?1:0) + (bull_structure_volume?1:0) + (bull_structure_sr?1:0) + (bull_structure_regime?1:0)
 
 bull_orderflow   = order_flow_bullish
@@ -315,7 +351,7 @@ bear_momentum_score = (bear_momentum_rsi?1:0) + (bear_momentum_macd?1:0) + (bear
 bear_structure_candle = strong_candle and close < open
 bear_structure_volume = volume_spike
 bear_structure_sr     = near_resistance
-bear_structure_regime = trending_market
+bear_structure_regime = market_regime == "Trending"
 bear_structure_score = (bear_structure_candle?1:0) + (bear_structure_volume?1:0) + (bear_structure_sr?1:0) + (bear_structure_regime?1:0)
 
 bear_orderflow   = order_flow_bearish
@@ -332,14 +368,23 @@ bear_environment_vwap      = close < vwap_price
 bear_environment_score = (bear_environment_session?1:0) + (bear_environment_volatility?1:0) + (bear_environment_expansion?1:0) + (bear_environment_vwap?1:0)
 
 // Scores
-total_bull_score = bull_trend_score + bull_momentum_score + bull_structure_score + bull_orderflow_score + bull_environment_score
-total_bear_score = bear_trend_score + bear_momentum_score + bear_structure_score + bear_orderflow_score + bear_environment_score
-max_possible_score = 19.0
-bull_strength_pct = math.max(0, math.min(100, (total_bull_score / max_possible_score) * 100))
-bear_strength_pct = math.max(0, math.min(100, (total_bear_score / max_possible_score) * 100))
+total_bull_score = (bull_trend_score * trend_weight) + (bull_momentum_score * momentum_weight) + (bull_structure_score * structure_weight) + (bull_orderflow_score * orderflow_weight) + (bull_environment_score * environment_weight)
+total_bear_score = (bear_trend_score * trend_weight) + (bear_momentum_score * momentum_weight) + (bear_structure_score * structure_weight) + (bear_orderflow_score * orderflow_weight) + (bear_environment_score * environment_weight)
+
+max_trend_score = 5 * trend_weight
+max_momentum_score = 4 * momentum_weight
+max_structure_score = 4 * structure_weight
+max_orderflow_score = 5 * orderflow_weight
+max_environment_score = 4 * environment_weight
+max_possible_score = max_trend_score + max_momentum_score + max_structure_score + max_orderflow_score + max_environment_score
+
+bull_strength_pct = max_possible_score > 0 ? math.max(0, math.min(100, (total_bull_score / max_possible_score) * 100)) : 0
+bear_strength_pct = max_possible_score > 0 ? math.max(0, math.min(100, (total_bear_score / max_possible_score) * 100)) : 0
 
 strength_thresholds = signal_strength_filter == "Low" ? 35 : signal_strength_filter == "Medium" ? 50 : signal_strength_filter == "High" ? 65 : 75
-required_score = math.max(6.0, (strength_thresholds / 100.0 * max_possible_score))
+base_required_score = (strength_thresholds / 100.0 * max_possible_score)
+regime_multiplier = market_regime == "Volatile" ? volatile_multiplier : market_regime == "Ranging" ? ranging_multiplier : 1.0
+required_score = base_required_score * regime_multiplier
 
 is_buy_signal  = total_bull_score >= required_score and total_bear_score < 4
 is_sell_signal = total_bear_score >= required_score and total_bull_score < 4
@@ -354,7 +399,7 @@ short_exit_dynamic = ta.crossover(rsi, rsi_os)
 // Risk
 atr_value = ta.atr(14)
 atr_safe  = math.max(nz(atr_value, high - low), (high - low) * 0.1)
-dynamic_sl_multiplier = trending_market ? sl_atr_mult : sl_atr_mult * 1.5
+dynamic_sl_multiplier = is_trending_by_adx ? adj_sl_atr_mult : adj_sl_atr_mult * 1.5
 stop_loss_distance   = atr_safe * dynamic_sl_multiplier
 take_profit_distance = stop_loss_distance * tp_ratio
 
@@ -448,53 +493,53 @@ plot(show_resistance_graph ? bull_strength_pct : na, title="Bull Strength %", li
 plot(show_resistance_graph ? bear_strength_pct : na, title="Bear Strength %", linewidth=2, color=color.new(color_bear_strong, 0), display=display.pane)
 
 // Data table
-var table t = table.new(position.top_right, 4, 9, border_width=1)
+var table t = table.new(position.top_right, 4, 12, border_width=1)
 if show_table and barstate.islast
-    table.clear(t, 0, 0, 3, 8)
-    table.cell(t, 0, 0, "ECE Pro V2", text_color=color.white, bgcolor=color.new(color.black, 0))
-    table.cell(t, 0, 1, "Trend", text_color=color.white, bgcolor=color.new(color.black, 0))
-    table.cell(t, 0, 2, "Momentum", text_color=color.white, bgcolor=color.new(color.black, 0))
-    table.cell(t, 0, 3, "Struct", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.clear(t, 0, 0, 3, 11)
+    table.cell(t, 0, 0, "ECE Pro V2", text_color=color.white, bgcolor=color.new(color.black, 0), width=10)
+    table.cell(t, 1, 0, "Regime: " + market_regime, text_color=color.white, bgcolor=color.new(color.black, 0), colspan=3)
 
-    table.cell(t, 1, 0, "Bull%")
-    table.cell(t, 1, 1, str.tostring(math.round(bull_trend_score, 1)))
-    table.cell(t, 1, 2, str.tostring(math.round(bull_momentum_score, 1)))
-    table.cell(t, 1, 3, str.tostring(math.round(bull_structure_score, 1)))
+    table.cell(t, 0, 2, "--- CONFLUENCE ---", colspan=4, text_color=color.gray)
+    table.cell(t, 0, 3, "Trend", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 1, 3, str.tostring(bull_trend_score, "0.0") + " | " + str.tostring(bear_trend_score, "0.0"), text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 2, 3, "Momentum", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 3, 3, str.tostring(bull_momentum_score, "0.0") + " | " + str.tostring(bear_momentum_score, "0.0"), text_color=color.white, bgcolor=color.new(color.black, 0))
 
-    table.cell(t, 2, 0, "Bear%")
-    table.cell(t, 2, 1, str.tostring(math.round(bear_trend_score, 1)))
-    table.cell(t, 2, 2, str.tostring(math.round(bear_momentum_score, 1)))
-    table.cell(t, 2, 3, str.tostring(math.round(bear_structure_score, 1)))
+    table.cell(t, 0, 4, "Bull/Bear Score", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 1, 4, str.tostring(total_bull_score, "0.0") + " | " + str.tostring(total_bear_score, "0.0"), text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 2, 4, "Req. Score", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 3, 4, str.tostring(required_score, "0.0"), text_color=color.white, bgcolor=color.new(color.black, 0))
 
-    table.cell(t, 3, 0, "OF/SMC")
-    table.cell(t, 3, 1, str.tostring(math.round(bull_orderflow_score, 1)))
-    table.cell(t, 3, 2, str.tostring(math.round(bear_orderflow_score, 1)))
-    table.cell(t, 3, 3, "Reg." + (trending_market ? "Trend" : "Range"))
+    // Backtesting Metrics Calculation
+    float profit_factor = strategy.grossloss > 0 ? strategy.grossprofit / strategy.grossloss : na
+    float max_drawdown = strategy.max_drawdown
 
-    table.cell(t, 4, 0, "Bull% Total", bgcolor=color.new(color_bull_strong, 80))
-    table.cell(t, 4, 1, str.tostring(math.round(bull_strength_pct, 1)) + "%", bgcolor=color.new(color_bull_strong, 80))
-    table.cell(t, 4, 2, "Bear% Total", bgcolor=color.new(color_bear_strong, 80))
-    table.cell(t, 4, 3, str.tostring(math.round(bear_strength_pct, 1)) + "%", bgcolor=color.new(color_bear_strong, 80))
+    var array<float> returns_array = array.new<float>()
+    if (strategy.closedtrades > strategy.closedtrades[1])
+        new_return = strategy.closedtrades.profit(strategy.closedtrades - 1) / strategy.equity[strategy.closedtrades.entry_bar_index(strategy.closedtrades - 1)]
+        array.push(returns_array, new_return)
 
-    table.cell(t, 5, 0, "Req.Score")
-    table.cell(t, 5, 1, str.tostring(math.round(required_score, 2)))
-    table.cell(t, 5, 2, "Thresh")
-    table.cell(t, 5, 3, str.tostring(strength_thresholds) + "%")
+    float sharpe_ratio = na
+    if (array.size(returns_array) > 1)
+        float avg_return = array.avg(returns_array)
+        float stdev_returns = array.stdev(returns_array)
+        sharpe_ratio := stdev_returns > 0 ? avg_return / stdev_returns * math.sqrt(252) : na // Annualized Sharpe for daily-ish returns
 
-    table.cell(t, 6, 0, "VWAP")
-    table.cell(t, 6, 1, close > vwap_price ? "Above" : "Below")
-    table.cell(t, 6, 2, "Session")
-    table.cell(t, 6, 3, in_session ? "ON" : "OFF")
+    table.cell(t, 0, 6, "--- BACKTEST METRICS ---", colspan=4, text_color=color.gray)
+    table.cell(t, 0, 7, "Total Trades", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 1, 7, str.tostring(strategy.closedtrades), text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 2, 7, "Win Rate %", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 3, 7, str.tostring(strategy.closedtrades > 0 ? (strategy.wintrades / strategy.closedtrades) * 100 : 0, "0.0"), text_color=color.white, bgcolor=color.new(color.black, 0))
 
-    table.cell(t, 7, 0, "ATR(14)")
-    table.cell(t, 7, 1, str.tostring(math.round(atr_value, 5)))
-    table.cell(t, 7, 2, "Vol.Regime")
-    table.cell(t, 7, 3, current_volatility_regime ? "High" : "Normal")
+    table.cell(t, 0, 8, "Profit Factor", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 1, 8, str.tostring(profit_factor, "0.00"), text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 2, 8, "Sharpe Ratio", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 3, 8, str.tostring(sharpe_ratio, "0.00"), text_color=color.white, bgcolor=color.new(color.black, 0))
 
-    table.cell(t, 8, 0, "Pos.Mult")
-    table.cell(t, 8, 1, str.tostring(math.round(position_size_multiplier, 2)))
-    table.cell(t, 8, 2, "RR")
-    table.cell(t, 8, 3, str.tostring(math.round(tp_ratio, 2)) + "R")
+    table.cell(t, 0, 9, "Max Drawdown %", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 1, 9, str.tostring(max_drawdown / strategy.initial_capital * 100, "0.0"), text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 2, 9, "Net Profit %", text_color=color.white, bgcolor=color.new(color.black, 0))
+    table.cell(t, 3, 9, str.tostring(strategy.netprofit / strategy.initial_capital * 100, "0.0"), text_color=color.white, bgcolor=color.new(color.black, 0))
 
 // █████████████████████████████████████████████████████████████████████████████████
 //                                 STRATEGY LOGIC
