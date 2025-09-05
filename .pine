@@ -1,498 +1,542 @@
-// © 2024 Elite Trading Systems - Enhanced Version
+// © AlgoAlpha Enhanced - Advanced Smart Money Breakout System Pro
+// This Source Code is subject to the Mozilla Public License 2.0
+// https://mozilla.org/MPL/2.0/
 //@version=6
-indicator("Elite Confluence Engine Pro V2", "ECE Pro V2", overlay=true, max_boxes_count=100, max_lines_count=100, max_labels_count=150)
-
-// █████████████████████████████████████████████████████████████████████████████████
-//                                ENHANCED CORE INPUTS
-// █████████████████████████████████████████████████████████████████████████████████
-
-// A. Multi-Timeframe Trend Engine
-group_trend = "🎯 Multi-Timeframe Trend Engine"
-htf_multiplier = input.int(4, "Higher Timeframe Multiplier", minval=2, maxval=20, group=group_trend)
-ma_long_len   = input.int(200, "Institutional MA Length", minval=50, maxval=500, group=group_trend)
-ma_fast_len   = input.int(21,  "Fast Trend MA", minval=10, maxval=50, group=group_trend)
-ma_slow_len   = input.int(50,  "Slow Trend MA", minval=20, maxval=100, group=group_trend)
-st_atr_len    = input.int(10,  "Supertrend ATR Period", minval=5, maxval=20, group=group_trend)
-st_factor     = input.float(3.0, "Supertrend Sensitivity", minval=1.0, maxval=5.0, step=0.1, group=group_trend)
-use_adaptive_ma = input.bool(true, "Use Adaptive Moving Averages", group=group_trend)
-
-// B. Advanced Momentum & Volume Engine
-group_momentum     = "⚡ Advanced Momentum Engine"
-rsi_len            = input.int(14, "RSI Length", minval=5, maxval=50, group=group_momentum)
-rsi_smooth         = input.int(3,  "RSI Smoothing", minval=1, maxval=10, group=group_momentum)
-rsi_ob             = input.int(70, "RSI Overbought", minval=60, maxval=90, group=group_momentum)
-rsi_os             = input.int(30, "RSI Oversold",  minval=10, maxval=40, group=group_momentum)
-macd_fast          = input.int(12, "MACD Fast", minval=5, maxval=20, group=group_momentum)
-macd_slow          = input.int(26, "MACD Slow", minval=15, maxval=40, group=group_momentum)
-macd_signal        = input.int(9,  "MACD Signal", minval=5, maxval=15, group=group_momentum)
-use_volume_confirmation = input.bool(true, "Volume Confirmation", group=group_momentum)
-volume_threshold   = input.float(1.5, "Volume Spike Threshold", minval=1.0, maxval=3.0, step=0.1, group=group_momentum)
-
-// C. Order Flow & Market Microstructure
-group_orderflow    = "📊 Order Flow & Market Microstructure"
-enable_orderflow   = input.bool(true, "Enable Order Flow Analysis", group=group_orderflow)
-cvd_length         = input.int(20, "Cumulative Volume Delta Length", minval=5, maxval=50, group=group_orderflow)
-delta_smoothing    = input.int(3,  "Delta Smoothing", minval=1, maxval=10, group=group_orderflow)
-imbalance_threshold= input.float(0.7, "Order Imbalance Threshold", minval=0.5, maxval=0.9, step=0.1, group=group_orderflow)
-
-// D. Smart Money Concepts
-group_smc          = "🧠 Smart Money Concepts"
-enable_smc         = input.bool(true, "Enable Smart Money Analysis", group=group_smc)
-fvg_threshold      = input.float(0.5, "Fair Value Gap Threshold %", minval=0.1, maxval=2.0, step=0.1, group=group_smc)
-bos_lookback       = input.int(20, "Break of Structure Lookback", minval=10, maxval=50, group=group_smc)
-
-// E. Supply/Demand & Dynamic S/R
-group_supply_demand   = "🏛️ Supply/Demand & Dynamic S/R"
-enable_supply_demand  = input.bool(true, "Enable Supply/Demand Zones", group=group_supply_demand)
-zone_strength_min     = input.int(3, "Minimum Zone Strength", minval=1, maxval=10, group=group_supply_demand)
-zone_lookback         = input.int(50, "Zone Detection Lookback", minval=20, maxval=200, group=group_supply_demand)
-show_resistance_graph = input.bool(true, "Show Resistance Strength Graph", group=group_supply_demand)
-
-// F. Market Regime & Volatility
-group_regime            = "🌊 Market Regime & Volatility Analysis"
-regime_length           = input.int(50, "Market Regime Detection Length", minval=20, maxval=100, group=group_regime)
-volatility_percentile   = input.int(80, "High Volatility Percentile", minval=70, maxval=95, group=group_regime)
-trend_strength_threshold= input.float(0.6, "Trend Strength Threshold", minval=0.3, maxval=0.9, step=0.1, group=group_regime)
-
-// G. Market Structure & Quality Filters
-group_structure     = "🏗️ Enhanced Market Structure"
-adr_lookback        = input.int(20, "ADR Calculation Period", minval=10, maxval=50, group=group_structure)
-min_candle_body     = input.float(0.4, "Minimum Candle Body %", minval=0.1, maxval=0.8, step=0.1, group=group_structure)
-use_session_filter  = input.bool(true, "Enhanced Session Filter", group=group_structure)
-use_news_filter     = input.bool(true, "High Impact News Filter", group=group_structure)
-volatility_threshold= input.float(2.0, "Max Volatility Multiplier", minval=1.0, maxval=5.0, step=0.1, group=group_structure)
-
-// H. Risk Management
-group_risk              = "🛡️ Advanced Risk Management"
-sl_atr_mult             = input.float(2.0, "Stop Loss ATR Multiplier", minval=0.5, maxval=5.0, step=0.1, group=group_risk)
-tp_ratio                = input.float(2.5, "Take Profit Ratio (R:R)", minval=1.0, maxval=5.0, step=0.1, group=group_risk)
-max_risk_per_trade      = input.float(2.0, "Max Risk Per Trade %", minval=0.5, maxval=10.0, step=0.1, group=group_risk)
-show_risk_levels        = input.bool(true, "Show Risk/Reward Levels", group=group_risk)
-dynamic_position_sizing = input.bool(true, "Dynamic Position Sizing", group=group_risk)
-
-// I. Visual & Alert Settings
-group_visuals        = "🎨 Advanced Visuals"
-show_confluence_zones= input.bool(true, "Show Confluence Zones", group=group_visuals)
-show_sr_levels       = input.bool(true, "Show S/R Levels", group=group_visuals)
-show_table           = input.bool(true, "Show Analysis Table", group=group_visuals)
-show_heatmap         = input.bool(true, "Show Confluence Heatmap", group=group_visuals)
-signal_strength_filter = input.string("Medium", "Minimum Signal Strength", options=["Low","Medium","High","Maximum"], group=group_visuals)
-alerts_enabled       = input.bool(true, "Enable All Alerts", group=group_visuals)
-
-// █████████████████████████████████████████████████████████████████████████████████
-//                             ENHANCED CALCULATIONS
-// █████████████████████████████████████████████████████████████████████████████████
-
-// 1) Higher Timeframe routing
-current_tf = timeframe.period
-htf_timeframe_str = current_tf == "1"   ? "5"  :
-     current_tf == "5"   ? "15" :
-     current_tf == "15"  ? "60" :
-     current_tf == "30"  ? "120":
-     current_tf == "60"  ? "240":
-     current_tf == "240" ? "1D" :
-     current_tf == "1D"  ? "1W" : "1D"
-
-use_htf = htf_timeframe_str != current_tf
-htf_close    = use_htf ? request.security(syminfo.tickerid, htf_timeframe_str, close,      lookahead=barmerge.lookahead_off) : close
-htf_ma_long  = use_htf ? request.security(syminfo.tickerid, htf_timeframe_str, ta.ema(close, ma_long_len), lookahead=barmerge.lookahead_off) : ta.ema(close, ma_long_len)
-htf_trend_bullish = na(htf_close) or na(htf_ma_long) ? true : htf_close > htf_ma_long
-
-// 2) Adaptive MAs with fractal efficiency
-volatility = ta.atr(14) / math.max(close, 0.0000001)
-efficiency_length = 14
-price_change = math.abs(close - nz(close[efficiency_length], close))
-path_length  = ta.sum(math.abs(close - close[1]), efficiency_length)
-fractal_efficiency = path_length > 0 ? price_change / path_length : 0
-
-ma_long       = ta.ema(close, ma_long_len)
-ema_fast_short= ta.ema(close, ma_fast_len)
-ema_fast_med  = ta.ema(close, math.min(50,  ma_fast_len + 10))
-ema_fast_long = ta.ema(close, math.min(50,  ma_fast_len + 20))
-ema_slow_short= ta.ema(close, ma_slow_len)
-ema_slow_med  = ta.ema(close, math.min(100, ma_slow_len + 15))
-ema_slow_long = ta.ema(close, math.min(100, ma_slow_len + 30))
-
-ma_fast = use_adaptive_ma ? (fractal_efficiency > 0.5 ? ema_fast_short : fractal_efficiency > 0.3 ? ema_fast_med : ema_fast_long) : ema_fast_short
-ma_slow = use_adaptive_ma ? (fractal_efficiency > 0.5 ? ema_slow_short : fractal_efficiency > 0.3 ? ema_slow_med : ema_slow_long) : ema_slow_short
-
-// 3) Supertrend
-[st_line, st_direction] = ta.supertrend(st_factor, st_atr_len)
-
-// 4) Momentum
-rsi_raw  = ta.rsi(close, rsi_len)
-rsi_s    = ta.sma(rsi_raw, rsi_smooth)
-rsi      = na(rsi_raw) ? 50 : rsi_s
-
-rsi_prev   = nz(rsi[1], 50)
-close_prev = nz(close[1], close)
-rsi_divergence_bull = rsi > rsi_prev and close < close_prev and rsi < 50
-rsi_divergence_bear = rsi < rsi_prev and close > close_prev and rsi > 50
-
-[macd_line, signal_line, macd_histogram] = ta.macd(close, macd_fast, macd_slow, macd_signal)
-macd_line_safe     = nz(macd_line)
-signal_line_safe   = nz(signal_line)
-macd_histogram_safe= nz(macd_histogram)
-
-macd_bullish = macd_line_safe > signal_line_safe and macd_histogram_safe > nz(macd_histogram_safe[1])
-macd_bearish = macd_line_safe < signal_line_safe and macd_histogram_safe < nz(macd_histogram_safe[1])
-
-// 5) Order Flow (CVD proxy)
-rng = math.max(high - low, syminfo.mintick)
-volume_safe = math.max(nz(volume, 1), 1)
-buy_volume  = volume_safe * ((close - low) / rng)
-sell_volume = volume_safe * ((high - close) / rng)
-volume_delta= buy_volume - sell_volume
-
-cvd       = ta.cum(volume_delta)
-cvd_sma   = ta.sma(cvd, cvd_length)
-cvd_signal= ta.sma(cvd_sma, delta_smoothing)
-
-order_flow_bullish = enable_orderflow and cvd > cvd_sma and cvd_sma > cvd_signal
-order_flow_bearish = enable_orderflow and cvd < cvd_sma and cvd_sma < cvd_signal
-
-current_imbalance = volume_safe > 0 ? math.abs(volume_delta) / volume_safe : 0
-high_imbalance    = current_imbalance > imbalance_threshold
-
-// 6) SMC
-gap_up        = low > nz(high[2])
-gap_down      = high < nz(low[2])
-gap_size_up   = gap_up   ? (low - nz(high[2])) / math.max(nz(high[2]), 0.0000001) * 100 : 0
-gap_size_down = gap_down ? (nz(low[2]) - high) / math.max(nz(low[2]), 0.0000001) * 100 : 0
-significant_fvg_up   = gap_up   and gap_size_up   > fvg_threshold
-significant_fvg_down = gap_down and gap_size_down > fvg_threshold
-
-leftRight = math.max(1, int(math.floor(bos_lookback / 2)))
-swing_high = ta.pivothigh(high, leftRight, leftRight)
-swing_low  = ta.pivotlow(low,  leftRight, leftRight)
-
-var float last_swing_high = na
-var float last_swing_low  = na
-if not na(swing_high)
-    last_swing_high := swing_high
-if not na(swing_low)
-    last_swing_low  := swing_low
-
-bos_bullish = enable_smc and not na(last_swing_high) and close > last_swing_high
-bos_bearish = enable_smc and not na(last_swing_low)  and close < last_swing_low
-
-// 7) Supply/Demand Zones
-zlq = math.max(1, int(math.floor(zone_lookback / 4)))
-supply_zone_high = ta.pivothigh(high, zlq, zlq)
-demand_zone_low  = ta.pivotlow(low,  zlq, zlq)
-
-supply_zone_strength = 0
-demand_zone_strength = 0
-loopTop = math.max(1, int(math.floor(zone_lookback / 2)))
-for i = 1 to loopTop
-    if not na(supply_zone_high) and high[i] <= supply_zone_high and high[i] >= supply_zone_high * 0.998
-        supply_zone_strength += 1
-    if not na(demand_zone_low) and low[i]  >= demand_zone_low  and low[i]  <= demand_zone_low  * 1.002
-        demand_zone_strength += 1
-
-strong_supply_zone = supply_zone_strength >= zone_strength_min
-strong_demand_zone = demand_zone_strength >= zone_strength_min
-
-// 8) Market Regime
-price_sma = ta.sma(close, regime_length)
-regime_trend_strength = price_sma != 0 ? math.abs(close - price_sma) / price_sma : 0
-
-volatility_percentile_val = ta.percentile_nearest_rank(ta.atr(14), regime_length, volatility_percentile)
-current_volatility_regime = ta.atr(14) > volatility_percentile_val
-
-trending_market = regime_trend_strength > trend_strength_threshold
-ranging_market  = not trending_market
-
-// 9) Volume suite
-avg_volume_20   = ta.sma(volume_safe, 20)
-avg_volume_10   = ta.sma(volume_safe, 10)
-avg_volume_safe = math.max(nz(avg_volume_20, volume_safe), 1)
-volume_spike    = use_volume_confirmation ? (volume_safe > avg_volume_safe * volume_threshold) : true
-volume_trend_up = nz(avg_volume_10) > nz(avg_volume_20)
-
-// 10) Market Structure
-vwap_price = ta.vwap(hlc3)
-distance_from_vwap = math.abs(close - vwap_price) / math.max(close, 0.0000001)
-near_vwap = distance_from_vwap < 0.01
-
-adr = ta.sma(high - low, adr_lookback)
-current_range = high - low
-adr_safe = nz(adr, current_range)
-is_expansion_day   = current_range > adr_safe * 1.2
-is_contraction_day = current_range < adr_safe * 0.8
-
-body_size  = math.abs(close - open)
-full_range = math.max(high - low, syminfo.mintick)
-candle_body_ratio = body_size / full_range
-strong_candle = candle_body_ratio >= min_candle_body
-
-// 11) Session filter (single source of truth)
-_hr = hour(time, syminfo.timezone)
-is_asian_session  = _hr >= 21 or _hr <= 6
-is_london_session = _hr >= 7  and _hr <= 16
-is_new_york_session = _hr >= 13 and _hr <= 22
-is_overlap_session  = _hr >= 13 and _hr <= 16
-high_liquidity_session = is_london_session or is_new_york_session or is_overlap_session
-in_session = not use_session_filter or high_liquidity_session
-
-// Enhanced volatility filter
-atr_20 = ta.atr(20)
-atr_sma_50 = ta.sma(atr_20, 50)
-current_volatility_raw = atr_sma_50 != 0 ? atr_20 / atr_sma_50 : 1.0
-current_volatility = nz(current_volatility_raw, 1.0)
-low_volatility_environment = not use_news_filter or current_volatility < volatility_threshold
-
-// 12) Dynamic S/R storage
-pivot_high = ta.pivothigh(high, 10, 10)
-pivot_low  = ta.pivotlow(low, 10, 10)
-var float[] resistance_levels_array = array.new<float>()
-var float[] support_levels_array    = array.new<float>()
-
-if not na(pivot_high)
-    array.unshift(resistance_levels_array, pivot_high)
-    if array.size(resistance_levels_array) > 10
-        array.pop(resistance_levels_array)
-
-if not na(pivot_low)
-    array.unshift(support_levels_array, pivot_low)
-    if array.size(support_levels_array) > 10
-        array.pop(support_levels_array)
-
-nearest_resistance = array.size(resistance_levels_array) > 0 ? array.get(resistance_levels_array, 0) : high
-nearest_support    = array.size(support_levels_array)    > 0 ? array.get(support_levels_array, 0)    : low
-near_support    = not na(nearest_support)    and math.abs(close - nearest_support) / math.max(close, 0.0000001) < 0.01
-near_resistance = not na(nearest_resistance) and math.abs(close - nearest_resistance) / math.max(close, 0.0000001) < 0.01
-
-// █████████████████████████████████████████████████████████████████████████████████
-//                            ENHANCED ELITE SIGNAL LOGIC
-// █████████████████████████████████████████████████████████████████████████████████
-
-bull_trend_htf  = htf_trend_bullish
-bull_trend_ma   = close > ma_long
-bull_trend_ribbon = ma_fast > ma_slow
-bull_trend_st   = st_direction < 0
-bull_trend_eff  = fractal_efficiency > 0.3
-bull_trend_score = (bull_trend_htf?1:0) + (bull_trend_ma?1:0) + (bull_trend_ribbon?1:0) + (bull_trend_st?1:0) + (bull_trend_eff?1:0)
-
-bull_momentum_rsi = rsi < rsi_ob and rsi > 40
-bull_momentum_macd= macd_bullish
-bull_momentum_div = rsi_divergence_bull
-bull_momentum_score = (bull_momentum_rsi?1:0) + (bull_momentum_macd?1:0) + (bull_momentum_div?2:0)
-
-bull_structure_candle = strong_candle and close > open
-bull_structure_volume = volume_spike and volume_trend_up
-bull_structure_sr     = near_support
-bull_structure_regime = trending_market
-bull_structure_score = (bull_structure_candle?1:0) + (bull_structure_volume?1:0) + (bull_structure_sr?1:0) + (bull_structure_regime?1:0)
-
-bull_orderflow   = order_flow_bullish
-bull_imbalance   = high_imbalance and volume_delta > 0
-bull_smc_bos     = bos_bullish
-bull_fvg         = significant_fvg_up
-bull_demand_zone = strong_demand_zone and not na(demand_zone_low) and close <= demand_zone_low * 1.002
-bull_orderflow_score = (bull_orderflow?1:0) + (bull_imbalance?1:0) + (bull_smc_bos?1:0) + (bull_fvg?1:0) + (bull_demand_zone?1:0)
-
-bull_environment_session   = in_session
-bull_environment_volatility= low_volatility_environment
-bull_environment_expansion = not is_contraction_day
-bull_environment_vwap      = close > vwap_price
-bull_environment_score = (bull_environment_session?1:0) + (bull_environment_volatility?1:0) + (bull_environment_expansion?1:0) + (bull_environment_vwap?1:0)
-
-// Bear side
-bear_trend_htf  = not htf_trend_bullish
-bear_trend_ma   = close < ma_long
-bear_trend_ribbon = ma_fast < ma_slow
-bear_trend_st   = st_direction > 0
-bear_trend_eff  = fractal_efficiency > 0.3
-bear_trend_score = (bear_trend_htf?1:0) + (bear_trend_ma?1:0) + (bear_trend_ribbon?1:0) + (bear_trend_st?1:0) + (bear_trend_eff?1:0)
-
-bear_momentum_rsi = rsi > rsi_os and rsi < 60
-bear_momentum_macd= macd_bearish
-bear_momentum_div = rsi_divergence_bear
-bear_momentum_score = (bear_momentum_rsi?1:0) + (bear_momentum_macd?1:0) + (bear_momentum_div?2:0)
-
-bear_structure_candle = strong_candle and close < open
-bear_structure_volume = volume_spike
-bear_structure_sr     = near_resistance
-bear_structure_regime = trending_market
-bear_structure_score = (bear_structure_candle?1:0) + (bear_structure_volume?1:0) + (bear_structure_sr?1:0) + (bear_structure_regime?1:0)
-
-bear_orderflow   = order_flow_bearish
-bear_imbalance   = high_imbalance and volume_delta < 0
-bear_smc_bos     = bos_bearish
-bear_fvg         = significant_fvg_down
-bear_supply_zone = strong_supply_zone and not na(supply_zone_high) and close >= supply_zone_high * 0.998
-bear_orderflow_score = (bear_orderflow?1:0) + (bear_imbalance?1:0) + (bear_smc_bos?1:0) + (bear_fvg?1:0) + (bear_supply_zone?1:0)
-
-bear_environment_session   = in_session
-bear_environment_volatility= low_volatility_environment
-bear_environment_expansion = not is_contraction_day
-bear_environment_vwap      = close < vwap_price
-bear_environment_score = (bear_environment_session?1:0) + (bear_environment_volatility?1:0) + (bear_environment_expansion?1:0) + (bear_environment_vwap?1:0)
-
-// Scores
-total_bull_score = bull_trend_score + bull_momentum_score + bull_structure_score + bull_orderflow_score + bull_environment_score
-total_bear_score = bear_trend_score + bear_momentum_score + bear_structure_score + bear_orderflow_score + bear_environment_score
-max_possible_score = 19.0
-bull_strength_pct = math.max(0, math.min(100, (total_bull_score / max_possible_score) * 100))
-bear_strength_pct = math.max(0, math.min(100, (total_bear_score / max_possible_score) * 100))
-
-strength_thresholds = signal_strength_filter == "Low" ? 35 : signal_strength_filter == "Medium" ? 50 : signal_strength_filter == "High" ? 65 : 75
-required_score = math.max(6.0, (strength_thresholds / 100.0 * max_possible_score))
-
-is_buy_signal  = total_bull_score >= required_score and total_bear_score < 4
-is_sell_signal = total_bear_score >= required_score and total_bull_score < 4
-
-buy_trigger  = is_buy_signal  and not nz(is_buy_signal[1])  and barstate.isconfirmed
-sell_trigger = is_sell_signal and not nz(is_sell_signal[1]) and barstate.isconfirmed
-
-// Risk
-atr_value = ta.atr(14)
-atr_safe  = math.max(nz(atr_value, high - low), (high - low) * 0.1)
-dynamic_sl_multiplier = trending_market ? sl_atr_mult : sl_atr_mult * 1.5
-stop_loss_distance   = atr_safe * dynamic_sl_multiplier
-take_profit_distance = stop_loss_distance * tp_ratio
-
-buy_stop_loss  = close - stop_loss_distance
-buy_take_profit= close + take_profit_distance
-sell_stop_loss = close + stop_loss_distance
-sell_take_profit= close - take_profit_distance
-
-volatility_adjustment = current_volatility_regime ? 0.7 : 1.0
-signal_confidence = math.max(bull_strength_pct, bear_strength_pct) / 100.0
-position_size_multiplier = dynamic_position_sizing ? (volatility_adjustment * signal_confidence * (bull_strength_pct > 80 or bear_strength_pct > 80 ? 1.3 : 1.0)) : 1.0
-
-// █████████████████████████████████████████████████████████████████████████████████
-//                              ENHANCED VISUALIZATION
-// █████████████████████████████████████████████████████████████████████████████████
-
-color_bull_strong = color.new(#00ff88, 0)
-color_bull_medium = color.new(#00cc66, 30)
-color_bear_strong = color.new(#ff3366, 0)
-color_bear_medium = color.new(#cc0033, 30)
-
-plot(ma_long, "Institutional MA", color=color.new(color.white, 30), linewidth=3)
-p_fast = plot(ma_fast, "Fast MA", color=color.new(color.lime, 40), linewidth=2)
-p_slow = plot(ma_slow, "Slow MA", color=color.new(color.red, 40), linewidth=2)
-fill(p_fast, p_slow, color=ma_fast > ma_slow ? color.new(color.lime, 85) : color.new(color.red, 85), title="MA Ribbon")
-
-st_color = st_direction < 0 ? color.new(color.lime, 20) : color.new(color.red, 20)
-plot(st_line, "Supertrend", color=st_color, linewidth=3, style=plot.style_linebr)
-
-plot(enable_orderflow ? ta.sma(volume_delta, 10) : na, "Volume Delta", color=color.new(color.yellow, 50), display=display.data_window)
-plot(vwap_price, "VWAP", color=color.new(color.orange, 30), linewidth=2)
-
-// S/R lines
-if show_sr_levels and barstate.islast
-    for i = 0 to math.min(array.size(resistance_levels_array) - 1, 4)
-        if i < array.size(resistance_levels_array)
-            float levelR = array.get(resistance_levels_array, i)
-            line.new(bar_index - 1, levelR, bar_index + 100, levelR, extend=extend.right, color=color.new(color_bear_strong, 60), width=2, style=line.style_solid)
-    for i = 0 to math.min(array.size(support_levels_array) - 1, 4)
-        if i < array.size(support_levels_array)
-            float levelS = array.get(support_levels_array, i)
-            line.new(bar_index - 1, levelS, bar_index + 100, levelS, extend=extend.right, color=color.new(color_bull_strong, 60), width=2, style=line.style_solid)
-
-// Supply / Demand boxes
-var box[] sd_boxes = array.new_box()
-if enable_supply_demand
-    if strong_demand_zone and not na(demand_zone_low)
-        demand_bottom = demand_zone_low
-        demand_top    = demand_zone_low * 1.002
-        bx = box.new(left=bar_index - 1, top=demand_top, right=bar_index + 150, bottom=demand_bottom, bgcolor=color.new(color_bull_medium, 75), border_color=color.new(color_bull_strong, 40))
-        array.push(sd_boxes, bx)
-    if strong_supply_zone and not na(supply_zone_high)
-        supply_top    = supply_zone_high
-        supply_bottom = supply_zone_high * 0.998
-        bx = box.new(left=bar_index - 1, top=supply_top, right=bar_index + 150, bottom=supply_bottom, bgcolor=color.new(color_bear_medium, 75), border_color=color.new(color_bear_strong, 40))
-        array.push(sd_boxes, bx)
-
-// Confluence heatmap
-net_bias  = bull_strength_pct - bear_strength_pct
-heat_alpha= int(math.min(92, math.abs(net_bias)))
-heat_color= net_bias >= 0 ? color.new(color_bull_strong, 100 - heat_alpha) : color.new(color_bear_strong, 100 - heat_alpha)
-bgcolor(show_heatmap ? heat_color : na, title="Confluence Heatmap")
-
-// Signals and R/R lines
-plotshape(buy_trigger,  title="Buy Signal",  style=shape.labelup,   text="BUY",  color=color.new(color_bull_strong, 0), textcolor=color.black, location=location.belowbar, size=size.large)
-plotshape(sell_trigger, title="Sell Signal", style=shape.labeldown, text="SELL", color=color.new(color_bear_strong, 0), textcolor=color.white, location=location.abovebar, size=size.large)
-
-if show_risk_levels
-    if buy_trigger
-        sl = line.new(bar_index, buy_stop_loss,  bar_index + 200, buy_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=2, style=line.style_dotted)
-        tp = line.new(bar_index, buy_take_profit,bar_index + 200, buy_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=2, style=line.style_dotted)
-        label.new(bar_index, buy_take_profit, "TP", style=label.style_label_up,   textcolor=color.black, color=color.new(color.lime, 10))
-        label.new(bar_index, buy_stop_loss,   "SL", style=label.style_label_down, textcolor=color.white, color=color.new(color.red, 10))
-    if sell_trigger
-        sl = line.new(bar_index, sell_stop_loss,  bar_index + 200, sell_stop_loss,  extend=extend.right, color=color.new(color.red, 50),  width=2, style=line.style_dotted)
-        tp = line.new(bar_index, sell_take_profit,bar_index + 200, sell_take_profit,extend=extend.right, color=color.new(color.lime, 50), width=2, style=line.style_dotted)
-        label.new(bar_index, sell_take_profit, "TP", style=label.style_label_down, textcolor=color.white, color=color.new(color.lime, 10))
-        label.new(bar_index, sell_stop_loss,   "SL", style=label.style_label_up,   textcolor=color.black, color=color.new(color.red, 10))
-
-// Local confluence zone box
-show_zone_for_signal = show_confluence_zones
-if show_zone_for_signal and (buy_trigger or sell_trigger)
-    range_pct = 0.003
-    topZone = buy_trigger ? close * (1 + range_pct) : close * (1 - range_pct)
-    botZone = buy_trigger ? close * (1 - range_pct) : close * (1 + range_pct)
-    zcol   = buy_trigger ? color.new(color_bull_medium, 80) : color.new(color_bear_medium, 80)
-    box.new(left=bar_index - 1, top=topZone, right=bar_index + 40, bottom=botZone, bgcolor=zcol, border_color=color.new(color.white, 70))
-
-// Mini bull-bear “resistance strength” graph in a pane
-plot(show_resistance_graph ? bull_strength_pct : na, title="Bull Strength %", linewidth=2, color=color.new(color_bull_strong, 0), display=display.pane)
-plot(show_resistance_graph ? bear_strength_pct : na, title="Bear Strength %", linewidth=2, color=color.new(color_bear_strong, 0), display=display.pane)
-
-// Data table
-var table t = table.new(position.top_right, 4, 9, border_width=1)
-if show_table and barstate.islast
-    table.clear(t)
-    table.cell(t, 0, 0, "ECE Pro V2", text_color=color.white, bgcolor=color.new(color.black, 0))
-    table.cell(t, 0, 1, "Trend", text_color=color.white, bgcolor=color.new(color.black, 0))
-    table.cell(t, 0, 2, "Momentum", text_color=color.white, bgcolor=color.new(color.black, 0))
-    table.cell(t, 0, 3, "Struct", text_color=color.white, bgcolor=color.new(color.black, 0))
-
-    table.cell(t, 1, 0, "Bull%")
-    table.cell(t, 1, 1, str.tostring(math.round(bull_trend_score, 1)))
-    table.cell(t, 1, 2, str.tostring(math.round(bull_momentum_score, 1)))
-    table.cell(t, 1, 3, str.tostring(math.round(bull_structure_score, 1)))
-
-    table.cell(t, 2, 0, "Bear%")
-    table.cell(t, 2, 1, str.tostring(math.round(bear_trend_score, 1)))
-    table.cell(t, 2, 2, str.tostring(math.round(bear_momentum_score, 1)))
-    table.cell(t, 2, 3, str.tostring(math.round(bear_structure_score, 1)))
-
-    table.cell(t, 3, 0, "OF/SMC")
-    table.cell(t, 3, 1, str.tostring(math.round(bull_orderflow_score, 1)))
-    table.cell(t, 3, 2, str.tostring(math.round(bear_orderflow_score, 1)))
-    table.cell(t, 3, 3, "Reg." + (trending_market ? "Trend" : "Range"))
-
-    table.cell(t, 4, 0, "Bull% Total", bgcolor=color.new(color_bull_strong, 80))
-    table.cell(t, 4, 1, str.tostring(math.round(bull_strength_pct, 1)) + "%", bgcolor=color.new(color_bull_strong, 80))
-    table.cell(t, 4, 2, "Bear% Total", bgcolor=color.new(color_bear_strong, 80))
-    table.cell(t, 4, 3, str.tostring(math.round(bear_strength_pct, 1)) + "%", bgcolor=color.new(color_bear_strong, 80))
-
-    table.cell(t, 5, 0, "Req.Score")
-    table.cell(t, 5, 1, str.tostring(math.round(required_score, 2)))
-    table.cell(t, 5, 2, "Thresh")
-    table.cell(t, 5, 3, str.tostring(strength_thresholds) + "%")
-
-    table.cell(t, 6, 0, "VWAP")
-    table.cell(t, 6, 1, close > vwap_price ? "Above" : "Below")
-    table.cell(t, 6, 2, "Session")
-    table.cell(t, 6, 3, in_session ? "ON" : "OFF")
-
-    table.cell(t, 7, 0, "ATR(14)")
-    table.cell(t, 7, 1, str.tostring(math.round(atr_value, 5)))
-    table.cell(t, 7, 2, "Vol.Regime")
-    table.cell(t, 7, 3, current_volatility_regime ? "High" : "Normal")
-
-    table.cell(t, 8, 0, "Pos.Mult")
-    table.cell(t, 8, 1, str.tostring(math.round(position_size_multiplier, 2)))
-    table.cell(t, 8, 2, "RR")
-    table.cell(t, 8, 3, str.tostring(math.round(tp_ratio, 2)) + "R")
-
-// Alerts
-alert_msg_buy  = "ECE Pro V2 BUY | Bull%: " + str.tostring(math.round(bull_strength_pct, 1)) + " | SL: " + str.tostring(buy_stop_loss)  + " | TP: " + str.tostring(buy_take_profit)  + " | Pos.Mult: " + str.tostring(math.round(position_size_multiplier, 2))
-alert_msg_sell = "ECE Pro V2 SELL | Bear%: " + str.tostring(math.round(bear_strength_pct, 1)) + " | SL: " + str.tostring(sell_stop_loss) + " | TP: " + str.tostring(sell_take_profit) + " | Pos.Mult: " + str.tostring(math.round(position_size_multiplier, 2))
-alertcondition(alerts_enabled and buy_trigger,  title="ECE Pro V2: BUY",  message=alert_msg_buy)
-alertcondition(alerts_enabled and sell_trigger, title="ECE Pro V2: SELL", message=alert_msg_sell)
+indicator("Advanced Smart Money Breakout System Pro [Enhanced]", "ProBreak", overlay=true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+import TradingView/ta/10
+
+// ============================================================================
+// INPUTS - Enhanced Configuration
+// ============================================================================
+
+// Main Settings
+overlap = input.bool(false, "Nested Channels", group = "Main Settings")
+strong = input.bool(true, "Strong Closes Only", group = "Main Settings")
+length_ = input.int(100, title="Normalization Length", minval=1, group = "Main Settings")
+length = input.int(14, "Box Detection Length", minval=1, group = "Main Settings")
+
+// Signal Enhancement Settings
+signal_strength_enabled = input.bool(true, "Enable Signal Strength Scoring", group="Signal Enhancement")
+min_signal_strength = input.float(6.0, "Minimum Signal Strength", minval=1.0, maxval=10.0, step=0.1, group="Signal Enhancement")
+show_position_sizing = input.bool(true, "Show Position Size Recommendations", group="Signal Enhancement")
+account_size = input.float(10000, "Account Size ($)", minval=1000, group="Signal Enhancement")
+risk_per_trade = input.float(2.0, "Risk Per Trade (%)", minval=0.5, maxval=10.0, step=0.1, group="Signal Enhancement")
+
+// Support/Resistance Settings
+show_sr_lines = input.bool(true, "Show Support/Resistance Lines", group="Support/Resistance")
+sr_lookback = input.int(50, "S/R Lookback Period", minval=10, maxval=200, group="Support/Resistance")
+sr_strength_threshold = input.int(3, "S/R Touch Threshold", minval=2, maxval=10, group="Support/Resistance")
+
+// Volume Analysis
+shw_vol = input.bool(true, "Show Volume Analysis", group = "Volume Analysis")
+vol_mode = input.string("Delta", "Volume Display Mode", options=["Volume", "Comparison", "Delta"], group="Volume Analysis")
+tf = input.timeframe("1", "Volume Delta Timeframe Source", group = "Volume Analysis")
+vol_scale = input.float(0.5, "Volume Scale", minval=0.1, maxval=2.0, step=0.1, group="Volume Analysis")
+volume_spike_threshold = input.float(2.0, "Volume Spike Multiplier", minval=1.0, maxval=5.0, step=0.1, group="Volume Analysis")
+
+// Momentum & Trend Analysis
+rsi_length = input.int(14, "RSI Length", minval=5, maxval=50, group="Momentum Analysis")
+rsi_overbought = input.int(70, "RSI Overbought", minval=60, maxval=90, group="Momentum Analysis")
+rsi_oversold = input.int(30, "RSI Oversold", minval=10, maxval=40, group="Momentum Analysis")
+ema_fast = input.int(21, "Fast EMA", minval=5, maxval=50, group="Trend Analysis")
+ema_slow = input.int(50, "Slow EMA", minval=20, maxval=200, group="Trend Analysis")
+
+// Appearance
+text_size = input.string("Small", "Text Size", options=["Tiny","Small","Medium","Large"], group="Appearance")
+green = input.color(#00ffbb, title = "Bullish Colour", group = "Appearance")
+red = input.color(#ff1100, title = "Bearish Colour", group = "Appearance")
+neutral = input.color(#ffaa00, title = "Neutral/Warning Colour", group = "Appearance")
+
+// ============================================================================
+// VARIABLES - Enhanced Arrays and Tracking
+// ============================================================================
+
+var boxes = array.new_box()
+var boxes_u = array.new_box()
+var boxes_l = array.new_box()
+var line[] gaugeLines = array.new<line>()
+var label gaugeLabel = na
+var line[] centerLines = array.new<line>()
+
+// Support/Resistance tracking
+var sr_levels = array.new<float>()
+var sr_lines = array.new<line>()
+var sr_touches = array.new<int>()
+
+// Signal tracking
+var signal_history = array.new<float>()
+var last_breakout_price = 0.0
+var last_signal_strength = 0.0
+
+// ============================================================================
+// CALCULATIONS - Extract all function calls for consistency
+// ============================================================================
+
+// Extract all TA function calls to global scope
+lowestLow = ta.lowest(low, length_)
+highestHigh = ta.highest(high, length_)
+normalizedPrice = (close - lowestLow) / (highestHigh - lowestLow)
+vol = ta.stdev(normalizedPrice, 14)
+atr_val = ta.atr(14)
+atr_length = ta.atr(length)
+sma_vol_20 = ta.sma(volume, 20)
+rsi_val = ta.rsi(close, rsi_length)
+ema21 = ta.ema(close, ema_fast)
+ema50 = ta.ema(close, ema_slow)
+
+// Extract pivot calculations
+pivot_high_5 = ta.pivothigh(high, 5, 5)
+pivot_low_5 = ta.pivotlow(low, 5, 5)
+
+upper = (ta.highestbars(vol, length + 1) + length)/length
+lower = (ta.lowestbars(vol, length + 1) + length)/length
+
+duration = math.max(nz(ta.barssince(ta.crossover(lower,upper))), 1)
+h = ta.highest(duration)
+l = ta.lowest(duration)
+
+[uv, dv, vold] = ta.requestUpAndDownVolume(tf)
+
+var hvold = vold
+var lvold = vold
+
+if ta.crossover(lower, upper)
+    hvold := vold
+    lvold := vold
+
+if vold > hvold
+    hvold := vold
+
+if vold < lvold
+    lvold := vold
+
+smoothedvol = sma_vol_20
+vola = atr_length/2
+
+// ============================================================================
+// ENHANCED FUNCTIONS
+// ============================================================================
+
+textSize(text_size) =>
+    switch text_size
+        "Tiny"  => size.tiny
+        "Small" => size.small
+        "Medium"=> size.normal
+        "Large" => size.large
+
+f_can_create(float tNew, float bNew) =>
+    ok = true
+    if boxes.size() > 0
+        for j = 0 to boxes.size()-1
+            if (tNew > boxes.get(j).get_bottom()) and (bNew < boxes.get(j).get_top())
+                ok := false
+                break
+    ok
+
+// Advanced Signal Strength Calculator - extracted to global scope
+calculate_signal_strength(bool is_bullish, float breakout_price, float channel_height) =>
+    float strength = 0.0
+    
+    // Volume confirmation (0-3 points)
+    vol_ratio = volume / sma_vol_20
+    if vol_ratio > volume_spike_threshold
+        strength += 3.0
+    else if vol_ratio > 1.5
+        strength += 2.0
+    else if vol_ratio > 1.2
+        strength += 1.0
+    
+    // RSI momentum confirmation (0-2 points)
+    if is_bullish
+        if rsi_val > 50 and rsi_val < rsi_overbought
+            strength += 2.0
+        else if rsi_val > 40
+            strength += 1.0
+    else
+        if rsi_val < 50 and rsi_val > rsi_oversold
+            strength += 2.0
+        else if rsi_val < 60
+            strength += 1.0
+    
+    // Trend alignment (0-2 points)
+    if is_bullish and ema21 > ema50 and close > ema21
+        strength += 2.0
+    else if not is_bullish and ema21 < ema50 and close < ema21
+        strength += 2.0
+    else if (is_bullish and close > ema21) or (not is_bullish and close < ema21)
+        strength += 1.0
+    
+    // Channel size significance (0-2 points)
+    if channel_height > atr_val * 2
+        strength += 2.0
+    else if channel_height > atr_val
+        strength += 1.0
+    
+    // Time of day bonus (0-1 point) - favor major session opens
+    hour_val = hour(time)
+    if (hour_val >= 8 and hour_val <= 10) or (hour_val >= 13 and hour_val <= 15)
+        strength += 1.0
+    
+    strength
+
+// Position Size Calculator
+calculate_position_size(float entry_price, float stop_loss, float account_value, float risk_percent) =>
+    risk_amount = account_value * (risk_percent / 100)
+    price_diff = math.abs(entry_price - stop_loss)
+    if price_diff > 0
+        position_size = risk_amount / price_diff
+        math.min(position_size, account_value * 0.25) // Max 25% of account
+    else
+        0.0
+
+// Support/Resistance Detection
+detect_sr_levels() =>
+    if show_sr_lines and barstate.islast
+        // Clear old lines
+        if sr_lines.size() > 0
+            for line_obj in sr_lines
+                line_obj.delete()
+            sr_lines.clear()
+        
+        sr_levels.clear()
+        sr_touches.clear()
+        
+        // Detect pivot highs and lows
+        for i = sr_lookback to 1
+            pivot_high = pivot_high_5[i]
+            pivot_low = pivot_low_5[i]
+            
+            if not na(pivot_high)
+                sr_levels.push(pivot_high)
+                sr_touches.push(1)
+            
+            if not na(pivot_low)
+                sr_levels.push(pivot_low)
+                sr_touches.push(1)
+        
+        // Count touches and draw significant levels
+        for i = 0 to sr_levels.size() - 1
+            level = sr_levels.get(i)
+            touches = 0
+            
+            // Count how many times price touched this level
+            for j = 1 to sr_lookback
+                high_touch = math.abs(high[j] - level) <= (atr_val * 0.5)
+                low_touch = math.abs(low[j] - level) <= (atr_val * 0.5)
+                close_touch = math.abs(close[j] - level) <= (atr_val * 0.5)
+                
+                if high_touch or low_touch or close_touch
+                    touches += 1
+            
+            // Draw line if sufficient touches
+            if touches >= sr_strength_threshold
+                line_color = level > close ? red : green
+                line_obj = line.new(bar_index - sr_lookback, level, bar_index + 10, level, 
+                                  color=color.new(line_color, 30), width=2, style=line.style_dashed)
+                sr_lines.push(line_obj)
+
+// Calculate signal strength for all scenarios at global level
+current_signal_strength_bull = calculate_signal_strength(true, close, 0.0)
+current_signal_strength_bear = calculate_signal_strength(false, close, 0.0)
+
+// ============================================================================
+// MAIN LOGIC
+// ============================================================================
+
+upbreak = 0.0
+downbreak = 0.0
+signal_strength = 0.0
+position_size = 0.0
+
+bool newChannelFormed = false
+bool bullishBreakout = false
+bool bearishBreakout = false
+
+// Channel Formation with Enhanced Logic
+if ta.crossover(upper, lower) and duration > 10
+    if overlap or f_can_create(h, l)
+        boxes.unshift(box.new(bar_index-duration, h, bar_index, l, bgcolor = color.new(chart.fg_color, 90), border_color = na))
+        boxes_u.unshift(box.new(bar_index-duration, h, bar_index, h-vola, bgcolor = color.new(red, 70), border_color = na))
+        boxes_l.unshift(box.new(bar_index-duration, l+vola, bar_index, l, bgcolor = color.new(green, 70), border_color = na))
+        
+        float centerY = (h + l) / 2
+        centerLines.unshift(line.new(bar_index-duration, centerY, bar_index, centerY, color = color.new(chart.fg_color, 50), width = 1, style = line.style_dashed))
+        newChannelFormed := true
+
+// Enhanced Breakout Detection with Signal Strength
+if boxes.size() > 0
+    for i = 0 to boxes.size()-1
+        box_top = boxes.get(i).get_top()
+        box_bottom = boxes.get(i).get_bottom()
+        channel_height = box_top - box_bottom
+        
+        // Calculate signal strength with proper channel height
+        bull_strength = calculate_signal_strength(true, close, channel_height)
+        bear_strength = calculate_signal_strength(false, close, channel_height)
+        
+        // Bullish breakout
+        if ((strong ? math.avg(close, open) : close) > box_top)
+            upbreak := box_bottom
+            signal_strength := bull_strength
+            
+            // Enhanced validation - check all conditions
+            channel_age = channel_start_bars.size() > i ? bar_index - channel_start_bars.get(i) : min_channel_duration
+            channel_mature = channel_age >= min_channel_duration
+            
+            // Only trigger if ALL conditions are met
+            if signal_strength >= min_signal_strength and can_signal() and channel_mature
+                // Calculate position size and stop loss
+                stop_loss = box_bottom - (atr_val * 0.75) // Wider stop for quality signals
+                position_size := calculate_position_size(close, stop_loss, account_size, risk_per_trade)
+                last_breakout_price := close
+                last_signal_strength := signal_strength
+                last_signal_bar := bar_index
+                bullishBreakout := true
+            else
+                // Reset if conditions not met
+                upbreak := 0.0
+                signal_strength := 0.0
+            
+            boxes.remove(i)
+            boxes_u.remove(i)
+            boxes_l.remove(i)
+            centerLines.remove(i)
+            if channel_start_bars.size() > i
+                channel_start_bars.remove(i)
+            
+        // Bearish breakout
+        else if ((strong ? math.avg(close, open) : close) < box_bottom)
+            downbreak := box_top
+            signal_strength := bear_strength
+            
+            // Enhanced validation - check all conditions
+            channel_age = channel_start_bars.size() > i ? bar_index - channel_start_bars.get(i) : min_channel_duration
+            channel_mature = channel_age >= min_channel_duration
+            
+            // Only trigger if ALL conditions are met
+            if signal_strength >= min_signal_strength and can_signal() and channel_mature
+                // Calculate position size and stop loss
+                stop_loss = box_top + (atr_val * 0.75) // Wider stop for quality signals
+                position_size := calculate_position_size(close, stop_loss, account_size, risk_per_trade)
+                last_breakout_price := close
+                last_signal_strength := signal_strength
+                last_signal_bar := bar_index
+                bearishBreakout := true
+            else
+                // Reset if conditions not met
+                downbreak := 0.0
+                signal_strength := 0.0
+            
+            boxes.remove(i)
+            boxes_u.remove(i)
+            boxes_l.remove(i)
+            centerLines.remove(i)
+            if channel_start_bars.size() > i
+                channel_start_bars.remove(i)
+        
+        else
+            boxes.get(i).set_right(bar_index)
+            boxes_u.get(i).set_right(bar_index)
+            boxes_l.get(i).set_right(bar_index)
+            centerLines.get(i).set_x2(bar_index)
+            
+            // Enhanced volume display with signal strength preview
+            float boxMidline = (box_top + box_bottom) / 2
+            float currentPrice = strong ? math.avg(close, open) : close
+            
+            // Preview signal strength for current position
+            float preview_strength = currentPrice > boxMidline ? bull_strength : bear_strength
+            
+            string volText = ""
+            if vol_mode == "Volume"
+                volText := str.tostring(math.round(volume / 1000, 1)) + "K"
+            else if vol_mode == "Comparison"
+                volText := str.tostring(math.round(uv / 1000, 1)) + "K/" + str.tostring(math.round(dv / 1000, 1)) + "K"
+            else if vol_mode == "Delta"
+                volText := str.tostring(math.round(vold / 1000, 1)) + "K"
+            
+            // Add signal strength to volume text
+            volText := volText + "\nStr:" + str.tostring(preview_strength, "0.1")
+            
+            if currentPrice > boxMidline
+                boxes_l.get(i).set_text(volText)
+                boxes_l.get(i).set_text_halign(text.align_right)
+                boxes_l.get(i).set_text_color(color.new(chart.fg_color, 30))
+                boxes_l.get(i).set_text_size(textSize(text_size))
+                boxes_u.get(i).set_text("")
+            else
+                boxes_u.get(i).set_text(volText)
+                boxes_u.get(i).set_text_halign(text.align_right)
+                boxes_u.get(i).set_text_color(color.new(chart.fg_color, 30))
+                boxes_u.get(i).set_text_size(textSize(text_size))
+                boxes_l.get(i).set_text("")
+
+// Volume Analysis (Enhanced)
+float currentMidline = na
+float channelHeight = na
+
+if boxes.size() > 0
+    float topBound = boxes.get(0).get_top()
+    float bottomBound = boxes.get(0).get_bottom()
+    currentMidline := (topBound + bottomBound) / 2
+    channelHeight := (topBound - bottomBound) * vol_scale
+
+float vol_upper_open = na
+float vol_upper_high = na  
+float vol_upper_low = na
+float vol_upper_close = na
+
+float vol_lower_open = na
+float vol_lower_high = na
+float vol_lower_low = na  
+float vol_lower_close = na
+
+if not na(currentMidline) and not na(channelHeight) and shw_vol
+    if vol_mode == "Volume"
+        float vol_height = (volume / smoothedvol) * (channelHeight / 4)
+        vol_upper_open := currentMidline
+        vol_upper_close := currentMidline + vol_height
+        vol_upper_high := currentMidline + vol_height
+        vol_upper_low := currentMidline
+        
+        vol_lower_open := currentMidline
+        vol_lower_close := currentMidline - vol_height
+        vol_lower_high := currentMidline
+        vol_lower_low := currentMidline - vol_height
+        
+    else if vol_mode == "Comparison"
+        float uv_height = na(uv) ? 0 : (uv / smoothedvol) * (channelHeight / 4)
+        float dv_height = na(dv) ? 0 : (dv / smoothedvol) * (channelHeight / 4)
+        
+        vol_upper_open := currentMidline
+        vol_upper_close := currentMidline + uv_height  
+        vol_upper_high := currentMidline + uv_height
+        vol_upper_low := currentMidline
+        
+        vol_lower_open := currentMidline
+        vol_lower_close := currentMidline + dv_height
+        vol_lower_high := currentMidline  
+        vol_lower_low := currentMidline + dv_height
+        
+    else if vol_mode == "Delta" 
+        float delta_height = na(vold) ? 0 : math.abs(vold / smoothedvol) * (channelHeight / 4)
+        
+        if vold >= 0
+            vol_upper_open := currentMidline
+            vol_upper_close := currentMidline + delta_height
+            vol_upper_high := currentMidline + delta_height  
+            vol_upper_low := currentMidline
+            
+            vol_lower_open := currentMidline
+            vol_lower_close := currentMidline
+            vol_lower_high := currentMidline
+            vol_lower_low := currentMidline
+        else
+            vol_upper_open := currentMidline
+            vol_upper_close := currentMidline
+            vol_upper_high := currentMidline
+            vol_upper_low := currentMidline
+            
+            vol_lower_open := currentMidline
+            vol_lower_close := currentMidline - delta_height  
+            vol_lower_high := currentMidline
+            vol_lower_low := currentMidline - delta_height
+
+color upperColor = vol_mode == "Volume" ? color.new(chart.fg_color, 60) : green
+color lowerColor = vol_mode == "Volume" ? color.new(chart.fg_color, 60) : red
+
+// ============================================================================
+// ENHANCED VISUALS WITH POSITION SIZING
+// ============================================================================
+
+// Enhanced breakout signals with position sizing - using plot instead of plotshape
+bull_signal = upbreak != 0 ? upbreak : na
+bear_signal = downbreak != 0 ? downbreak : na
+
+plot(bull_signal, "Bullish Breakout", color=na, display=display.none)
+plot(bear_signal, "Bearish Breakout", color=na, display=display.none)
+
+// Create labels for breakout signals
+if upbreak != 0 and show_position_sizing and position_size > 0
+    signal_text = "▲ BUY\nStr: " + str.tostring(last_signal_strength, "0.1") + "/10\nSize: $" + str.tostring(math.round(position_size * last_breakout_price), "0")
+    label.new(bar_index, upbreak, signal_text, color=green, textcolor=chart.fg_color, style=label.style_label_up, size=textSize(text_size))
+else if upbreak != 0
+    label.new(bar_index, upbreak, "▲ BUY", color=green, textcolor=chart.fg_color, style=label.style_label_up, size=textSize(text_size))
+
+if downbreak != 0 and show_position_sizing and position_size > 0
+    signal_text = "▼ SELL\nStr: " + str.tostring(last_signal_strength, "0.1") + "/10\nSize: $" + str.tostring(math.round(position_size * last_breakout_price), "0")
+    label.new(bar_index, downbreak, signal_text, color=red, textcolor=chart.fg_color, style=label.style_label_down, size=textSize(text_size))
+else if downbreak != 0
+    label.new(bar_index, downbreak, "▼ SELL", color=red, textcolor=chart.fg_color, style=label.style_label_down, size=textSize(text_size))
+
+// Volume candles
+plotcandle(vol_upper_open, vol_upper_high, vol_upper_low, vol_upper_close, color=upperColor, wickcolor=upperColor, bordercolor=upperColor)
+plotcandle(vol_lower_open, vol_lower_high, vol_lower_low, vol_lower_close, color=lowerColor, wickcolor=lowerColor, bordercolor=lowerColor)
+
+// Support/Resistance Detection
+detect_sr_levels()
+
+// Enhanced gauge with signal strength
+volumeAvailable = not na(volume)
+
+if barstate.islast
+    bool channelActive = boxes.size() > 0 and upbreak == 0 and downbreak == 0
+    
+    if array.size(gaugeLines) > 0
+        for ln in gaugeLines
+            ln.delete()
+        gaugeLines.clear()
+    
+    if not na(gaugeLabel)
+        gaugeLabel.delete()
+        gaugeLabel := na
+    
+    if channelActive
+        float topBound = boxes.get(0).get_top()
+        float bottomBound = boxes.get(0).get_bottom()
+        
+        if not na(topBound) and not na(bottomBound) and topBound != bottomBound
+            int segments = 21
+            float segLen = (topBound - bottomBound) / segments
+            
+            for i = 0 to segments - 1
+                float y1 = topBound - i * segLen
+                float y2 = topBound - (i + 1) * segLen
+                color segCol = color.from_gradient(y1, bottomBound, topBound, red, green)
+                line ln = line.new(x1 = bar_index + 2, y1 = y1, x2 = bar_index + 2, y2 = y2, 
+                                 color = segCol, width = 4)
+                gaugeLines.unshift(ln)
+            
+            float delvol = -100*2*((vold-lvold)/(hvold-lvold)-0.5)
+            delvol := math.max(math.min(delvol, 100), -100)
+            float pointerPos = topBound - ((delvol + 100) / 200) * (topBound - bottomBound)
+            
+            // Enhanced gauge label with signal strength preview
+            float preview_strength = math.max(current_signal_strength_bull, current_signal_strength_bear)
+            string gauge_text = "◀\n" + str.tostring(preview_strength, "0.1")
+            
+            gaugeLabel := label.new(x = bar_index + 3, y = pointerPos, text = gauge_text, 
+                                  color = na, textcolor = chart.fg_color, size = size.small, 
+                                  style = label.style_label_left)
+
+// Warning for no volume data
+if not volumeAvailable
+    var gaugeWarnTable = table.new(position = position.top_right, columns = 1, rows = 1, 
+                                 bgcolor = red, border_width = 1, border_color = chart.fg_color, 
+                                 frame_color = chart.fg_color, frame_width = 1)
+    table.cell(gaugeWarnTable, 0, 0, "Volume not available\nAdvanced features limited", 
+             text_color = chart.fg_color, text_halign = text.align_center, text_size = size.small)
+
+// ============================================================================
+// ENHANCED ALERTS
+// ============================================================================
+
+alertcondition(newChannelFormed, "New Channel Formation", "A new breakout channel has been formed")
+alertcondition(bullishBreakout and signal_strength >= min_signal_strength, "Strong Bullish Breakout", 
+             "Strong bullish breakout detected")
+alertcondition(bearishBreakout and signal_strength >= min_signal_strength, "Strong Bearish Breakout", 
+             "Strong bearish breakout detected")
+
+// Plot hidden values for alerts
+plot(signal_strength, "Signal Strength", display = display.none)
+plot(position_size, "Position Size", display = display.none)
