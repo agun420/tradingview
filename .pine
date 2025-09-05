@@ -69,7 +69,7 @@ var sr_touches = array.new<int>()
 var signal_history = array.new<float>()
 var last_breakout_price = 0.0
 var last_signal_strength = 0.0
-var last_signal_bar = na
+var int last_signal_bar = na
 var channel_start_bars = array.new_int()
 
 // ============================================================================
