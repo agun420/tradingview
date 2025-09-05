@@ -21,6 +21,8 @@ min_signal_strength = input.float(6.0, "Minimum Signal Strength", minval=1.0, ma
 show_position_sizing = input.bool(true, "Show Position Size Recommendations", group="Signal Enhancement")
 account_size = input.float(10000, "Account Size ($)", minval=1000, group="Signal Enhancement")
 risk_per_trade = input.float(2.0, "Risk Per Trade (%)", minval=0.5, maxval=10.0, step=0.1, group="Signal Enhancement")
+min_channel_duration = input.int(5, "Minimum Channel Duration", minval=1, group="Signal Enhancement")
+min_bars_between_signals = input.int(10, "Minimum Bars Between Signals", minval=1, group="Signal Enhancement")
 
 // Support/Resistance Settings
 show_sr_lines = input.bool(true, "Show Support/Resistance Lines", group="Support/Resistance")
@@ -67,6 +69,8 @@ var sr_touches = array.new<int>()
 var signal_history = array.new<float>()
 var last_breakout_price = 0.0
 var last_signal_strength = 0.0
+var last_signal_bar = na
+var channel_start_bars = array.new_int()
 
 // ============================================================================
 // CALCULATIONS - Extract all function calls for consistency
@@ -132,6 +136,10 @@ f_can_create(float tNew, float bNew) =>
                 ok := false
                 break
     ok
+
+can_signal() =>
+    bars_since_signal = bar_index - nz(last_signal_bar, 0)
+    na(last_signal_bar) or bars_since_signal >= min_bars_between_signals
 
 // Advanced Signal Strength Calculator - extracted to global scope
 calculate_signal_strength(bool is_bullish, float breakout_price, float channel_height) =>
@@ -253,7 +261,7 @@ bool bullishBreakout = false
 bool bearishBreakout = false
 
 // Channel Formation with Enhanced Logic
-if ta.crossover(upper, lower) and duration > 10
+if ta.crossover(upper, lower) and duration > min_channel_duration
     if overlap or f_can_create(h, l)
         boxes.unshift(box.new(bar_index-duration, h, bar_index, l, bgcolor = color.new(chart.fg_color, 90), border_color = na))
         boxes_u.unshift(box.new(bar_index-duration, h, bar_index, h-vola, bgcolor = color.new(red, 70), border_color = na))
@@ -261,6 +269,7 @@ if ta.crossover(upper, lower) and duration > 10
         
         float centerY = (h + l) / 2
         centerLines.unshift(line.new(bar_index-duration, centerY, bar_index, centerY, color = color.new(chart.fg_color, 50), width = 1, style = line.style_dashed))
+        channel_start_bars.unshift(bar_index - duration)
         newChannelFormed := true
 
 // Enhanced Breakout Detection with Signal Strength
