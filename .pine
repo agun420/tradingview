@@ -2,7 +2,7 @@
 // This Source Code is subject to the Mozilla Public License 2.0
 // https://mozilla.org/MPL/2.0/
 //@version=6
-indicator("Real-Time Smart Money Breakout System", "RT-Pro", overlay=true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500, calc_on_every_tick=true)
+indicator("Real-Time Smart Money Breakout System", "RT-Pro", overlay=true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
 import TradingView/ta/10
 
 // ============================================================================
@@ -178,10 +178,10 @@ detect_realtime_channel(in_channel_arg) =>
         range_size = range_high - range_low
         
         if range_size > atr_val * 0.5 and not in_channel_arg
-            is_formed = true
-            top = range_high
-            bottom = range_low
-            start_bar = bar_index - min_channel_bars
+            is_formed := true
+            top := range_high
+            bottom := range_low
+            start_bar := bar_index - min_channel_bars
 
     [is_formed, top, bottom, start_bar]
 
@@ -205,13 +205,12 @@ if new_channel_formed
     channel_start_bar := new_start_bar
 
 // Traditional channel detection (if real-time mode is off)
+upper = (ta.highestbars(vol, effective_length + 1) + effective_length)/effective_length
+lower = (ta.lowestbars(vol, effective_length + 1) + effective_length)/effective_length
+duration = math.max(nz(ta.barssince(ta.crossover(lower,upper))), 1)
+h = ta.highest(duration)
+l = ta.lowest(duration)
 if not realtime_mode
-    upper = (ta.highestbars(vol, effective_length + 1) + effective_length)/effective_length
-    lower = (ta.lowestbars(vol, effective_length + 1) + effective_length)/effective_length
-    duration = math.max(nz(ta.barssince(ta.crossover(lower,upper))), 1)
-    h = ta.highest(duration)
-    l = ta.lowest(duration)
-    
     if ta.crossover(upper, lower) and duration > min_channel_bars
         boxes.unshift(box.new(bar_index-duration, h, bar_index, l, bgcolor = color.new(chart.fg_color, 90), border_color = na))
         boxes_u.unshift(box.new(bar_index-duration, h, bar_index, h-atr_val/2, bgcolor = color.new(red, 70), border_color = na))
