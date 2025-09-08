@@ -1,54 +1,59 @@
-// © AlgoAlpha Enhanced - Advanced Smart Money Breakout System Pro
+// © AlgoAlpha Enhanced - Real-Time Smart Money Breakout System
 // This Source Code is subject to the Mozilla Public License 2.0
 // https://mozilla.org/MPL/2.0/
 //@version=6
-indicator("Advanced Smart Money Breakout System Pro [Enhanced]", "ProBreak", overlay=true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+indicator("Real-Time Smart Money Breakout System", "RT-Pro", overlay=true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
 import TradingView/ta/10
 
 // ============================================================================
-// INPUTS - Enhanced Configuration
+// INPUTS - Real-Time Configuration
 // ============================================================================
 
-// Main Settings
-overlap = input.bool(false, "Nested Channels", group = "Main Settings")
-strong = input.bool(true, "Strong Closes Only", group = "Main Settings")
-length_ = input.int(100, title="Normalization Length", minval=1, group = "Main Settings")
-length = input.int(14, "Box Detection Length", minval=1, group = "Main Settings")
+// Real-Time Settings
+realtime_mode = input.bool(true, "Real-Time Mode (Faster Signals)", group = "Real-Time Settings")
+quick_detection = input.bool(true, "Quick Channel Detection", group = "Real-Time Settings")
+min_channel_bars = input.int(5, "Minimum Channel Bars", minval=3, maxval=20, group = "Real-Time Settings")
+breakout_confirmation = input.string("Immediate", "Breakout Confirmation", options=["Immediate", "Next Bar", "Volume Confirmed"], group = "Real-Time Settings")
+
+// Dynamic Detection Settings
+dynamic_length = input.bool(true, "Dynamic Length Adjustment", group = "Dynamic Settings")
+base_length = input.int(14, "Base Detection Length", minval=5, maxval=50, group = "Dynamic Settings")
+volatility_multiplier = input.float(1.5, "Volatility Sensitivity", minval=0.5, maxval=3.0, step=0.1, group = "Dynamic Settings")
+
+// Pre-Signal Alerts
+show_pre_signals = input.bool(true, "Show Pre-Breakout Signals", group = "Pre-Signal Settings")
+pre_signal_threshold = input.float(0.8, "Pre-Signal Threshold (0-1)", minval=0.5, maxval=0.95, step=0.05, group = "Pre-Signal Settings")
+
+// Traditional Settings (kept for compatibility)
+overlap = input.bool(false, "Nested Channels", group = "Traditional Settings")
+strong = input.bool(false, "Strong Closes Only (Slower)", group = "Traditional Settings")
+length_ = input.int(50, title="Normalization Length", minval=20, group = "Traditional Settings")
 
 // Signal Enhancement Settings
 signal_strength_enabled = input.bool(true, "Enable Signal Strength Scoring", group="Signal Enhancement")
-min_signal_strength = input.float(6.0, "Minimum Signal Strength", minval=1.0, maxval=10.0, step=0.1, group="Signal Enhancement")
+min_signal_strength = input.float(4.0, "Minimum Signal Strength", minval=1.0, maxval=10.0, step=0.1, group="Signal Enhancement")
 show_position_sizing = input.bool(true, "Show Position Size Recommendations", group="Signal Enhancement")
 account_size = input.float(10000, "Account Size ($)", minval=1000, group="Signal Enhancement")
 risk_per_trade = input.float(2.0, "Risk Per Trade (%)", minval=0.5, maxval=10.0, step=0.1, group="Signal Enhancement")
 
-// Support/Resistance Settings
-show_sr_lines = input.bool(true, "Show Support/Resistance Lines", group="Support/Resistance")
-sr_lookback = input.int(50, "S/R Lookback Period", minval=10, maxval=200, group="Support/Resistance")
-sr_strength_threshold = input.int(3, "S/R Touch Threshold", minval=2, maxval=10, group="Support/Resistance")
-
-// Volume Analysis
+// Volume Analysis (Optimized for Speed)
 shw_vol = input.bool(true, "Show Volume Analysis", group = "Volume Analysis")
-vol_mode = input.string("Delta", "Volume Display Mode", options=["Volume", "Comparison", "Delta"], group="Volume Analysis")
-tf = input.timeframe("1", "Volume Delta Timeframe Source", group = "Volume Analysis")
-vol_scale = input.float(0.5, "Volume Scale", minval=0.1, maxval=2.0, step=0.1, group="Volume Analysis")
-volume_spike_threshold = input.float(2.0, "Volume Spike Multiplier", minval=1.0, maxval=5.0, step=0.1, group="Volume Analysis")
+vol_lookback = input.int(10, "Volume Lookback (Faster)", minval=5, maxval=50, group="Volume Analysis")
+volume_spike_threshold = input.float(1.5, "Volume Spike Multiplier", minval=1.0, maxval=3.0, step=0.1, group="Volume Analysis")
 
-// Momentum & Trend Analysis
-rsi_length = input.int(14, "RSI Length", minval=5, maxval=50, group="Momentum Analysis")
-rsi_overbought = input.int(70, "RSI Overbought", minval=60, maxval=90, group="Momentum Analysis")
-rsi_oversold = input.int(30, "RSI Oversold", minval=10, maxval=40, group="Momentum Analysis")
-ema_fast = input.int(21, "Fast EMA", minval=5, maxval=50, group="Trend Analysis")
-ema_slow = input.int(50, "Slow EMA", minval=20, maxval=200, group="Trend Analysis")
+// Momentum & Trend Analysis (Faster)
+rsi_length = input.int(9, "RSI Length (Faster)", minval=5, maxval=21, group="Momentum Analysis")
+ema_fast = input.int(9, "Fast EMA", minval=5, maxval=21, group="Trend Analysis")
+ema_slow = input.int(21, "Slow EMA", minval=15, maxval=50, group="Trend Analysis")
 
 // Appearance
 text_size = input.string("Small", "Text Size", options=["Tiny","Small","Medium","Large"], group="Appearance")
 green = input.color(#00ffbb, title = "Bullish Colour", group = "Appearance")
 red = input.color(#ff1100, title = "Bearish Colour", group = "Appearance")
-neutral = input.color(#ffaa00, title = "Neutral/Warning Colour", group = "Appearance")
+yellow = input.color(#ffaa00, title = "Pre-Signal Colour", group = "Appearance")
 
 // ============================================================================
-// VARIABLES - Enhanced Arrays and Tracking
+// VARIABLES - Real-Time Arrays and Tracking
 // ============================================================================
 
 var boxes = array.new_box()
@@ -57,64 +62,47 @@ var boxes_l = array.new_box()
 var line[] gaugeLines = array.new<line>()
 var label gaugeLabel = na
 var line[] centerLines = array.new<line>()
+var line[] pre_signal_lines = array.new<line>()
 
-// Support/Resistance tracking
-var sr_levels = array.new<float>()
-var sr_lines = array.new<line>()
-var sr_touches = array.new<int>()
-
-// Signal tracking
-var signal_history = array.new<float>()
-var last_breakout_price = 0.0
-var last_signal_strength = 0.0
+// Real-time tracking
+var float last_high = na
+var float last_low = na
+var int channel_start_bar = na
+var bool in_channel = false
+var float channel_top = na
+var float channel_bottom = na
 
 // ============================================================================
-// CALCULATIONS - Extract all function calls for consistency
+// OPTIMIZED CALCULATIONS
 // ============================================================================
 
-// Extract all TA function calls to global scope
-lowestLow = ta.lowest(low, length_)
-highestHigh = ta.highest(high, length_)
-normalizedPrice = (close - lowestLow) / (highestHigh - lowestLow)
-vol = ta.stdev(normalizedPrice, 14)
-atr_val = ta.atr(14)
-atr_length = ta.atr(length)
-sma_vol_20 = ta.sma(volume, 20)
+// Dynamic length adjustment based on volatility
+current_volatility = ta.atr(10)
+avg_volatility = ta.sma(current_volatility, 20)
+volatility_ratio = current_volatility / avg_volatility
+
+// Adjust detection length dynamically
+effective_length = dynamic_length ? math.round(base_length * (2 - math.min(volatility_ratio * volatility_multiplier, 2))) : base_length
+
+// Faster calculations with reduced lookback
+lowestLow = ta.lowest(low, math.min(effective_length, length_))
+highestHigh = ta.highest(high, math.min(effective_length, length_))
+normalizedPrice = (close - lowestLow) / math.max(highestHigh - lowestLow, 0.0001)
+vol = ta.stdev(normalizedPrice, math.min(effective_length, 14))
+
+// Faster ATR and volume calculations
+atr_val = ta.atr(10)
+sma_vol_fast = ta.sma(volume, vol_lookback)
 rsi_val = ta.rsi(close, rsi_length)
-ema21 = ta.ema(close, ema_fast)
-ema50 = ta.ema(close, ema_slow)
+ema_fast_val = ta.ema(close, ema_fast)
+ema_slow_val = ta.ema(close, ema_slow)
 
-// Extract pivot calculations
-pivot_high_5 = ta.pivothigh(high, 5, 5)
-pivot_low_5 = ta.pivotlow(low, 5, 5)
-
-upper = (ta.highestbars(vol, length + 1) + length)/length
-lower = (ta.lowestbars(vol, length + 1) + length)/length
-
-duration = math.max(nz(ta.barssince(ta.crossover(lower,upper))), 1)
-h = ta.highest(duration)
-l = ta.lowest(duration)
-
-[uv, dv, vold] = ta.requestUpAndDownVolume(tf)
-
-var hvold = vold
-var lvold = vold
-
-if ta.crossover(lower, upper)
-    hvold := vold
-    lvold := vold
-
-if vold > hvold
-    hvold := vold
-
-if vold < lvold
-    lvold := vold
-
-smoothedvol = sma_vol_20
-vola = atr_length/2
+// Real-time channel detection
+is_local_high = high > ta.highest(high[1], 3) and high > ta.highest(high, 3)[1]
+is_local_low = low < ta.lowest(low[1], 3) and low < ta.lowest(low, 3)[1]
 
 // ============================================================================
-// ENHANCED FUNCTIONS
+// REAL-TIME FUNCTIONS
 // ============================================================================
 
 textSize(text_size) =>
@@ -124,419 +112,238 @@ textSize(text_size) =>
         "Medium"=> size.normal
         "Large" => size.large
 
-f_can_create(float tNew, float bNew) =>
-    ok = true
-    if boxes.size() > 0
-        for j = 0 to boxes.size()-1
-            if (tNew > boxes.get(j).get_bottom()) and (bNew < boxes.get(j).get_top())
-                ok := false
-                break
-    ok
-
-// Advanced Signal Strength Calculator - extracted to global scope
-calculate_signal_strength(bool is_bullish, float breakout_price, float channel_height) =>
+// Real-time signal strength calculator (optimized)
+calculate_realtime_signal_strength(bool is_bullish) =>
     float strength = 0.0
     
-    // Volume confirmation (0-3 points)
-    vol_ratio = volume / sma_vol_20
-    if vol_ratio > volume_spike_threshold
+    // Current volume vs recent average (0-3 points)
+    vol_ratio = volume / sma_vol_fast
+    if vol_ratio > volume_spike_threshold * 1.5
         strength += 3.0
-    else if vol_ratio > 1.5
+    else if vol_ratio > volume_spike_threshold
         strength += 2.0
-    else if vol_ratio > 1.2
+    else if vol_ratio > 1.1
         strength += 1.0
     
-    // RSI momentum confirmation (0-2 points)
+    // RSI momentum (0-2 points)
     if is_bullish
-        if rsi_val > 50 and rsi_val < rsi_overbought
+        if rsi_val > 50 and rsi_val < 75
             strength += 2.0
-        else if rsi_val > 40
+        else if rsi_val > 45
             strength += 1.0
     else
-        if rsi_val < 50 and rsi_val > rsi_oversold
+        if rsi_val < 50 and rsi_val > 25
             strength += 2.0
-        else if rsi_val < 60
+        else if rsi_val < 55
             strength += 1.0
     
     // Trend alignment (0-2 points)
-    if is_bullish and ema21 > ema50 and close > ema21
-        strength += 2.0
-    else if not is_bullish and ema21 < ema50 and close < ema21
-        strength += 2.0
-    else if (is_bullish and close > ema21) or (not is_bullish and close < ema21)
-        strength += 1.0
+    if is_bullish and ema_fast_val > ema_slow_val
+        strength += 1.5
+        if close > ema_fast_val
+            strength += 0.5
+    else if not is_bullish and ema_fast_val < ema_slow_val
+        strength += 1.5
+        if close < ema_fast_val
+            strength += 0.5
     
-    // Channel size significance (0-2 points)
-    if channel_height > atr_val * 2
-        strength += 2.0
-    else if channel_height > atr_val
-        strength += 1.0
+    // Price momentum (0-1.5 points)
+    price_change = (close - close[1]) / close[1]
+    if (is_bullish and price_change > 0.01) or (not is_bullish and price_change < -0.01)
+        strength += 1.5
+    else if (is_bullish and price_change > 0) or (not is_bullish and price_change < 0)
+        strength += 0.5
     
-    // Time of day bonus (0-1 point) - favor major session opens
+    // Time-based bonus for major sessions (0-0.5 points)
     hour_val = hour(time)
     if (hour_val >= 8 and hour_val <= 10) or (hour_val >= 13 and hour_val <= 15)
-        strength += 1.0
+        strength += 0.5
     
     strength
 
-// Position Size Calculator
-calculate_position_size(float entry_price, float stop_loss, float account_value, float risk_percent) =>
-    risk_amount = account_value * (risk_percent / 100)
-    price_diff = math.abs(entry_price - stop_loss)
-    if price_diff > 0
-        position_size = risk_amount / price_diff
-        math.min(position_size, account_value * 0.25) // Max 25% of account
+// Real-time channel detection
+detect_realtime_channel() =>
+    // Quick channel formation detection
+    if quick_detection
+        range_high = ta.highest(high, min_channel_bars)
+        range_low = ta.lowest(low, min_channel_bars)
+        range_size = range_high - range_low
+        
+        // Check if we have a valid range
+        if range_size > atr_val * 0.5 and not in_channel
+            in_channel := true
+            channel_top := range_high
+            channel_bottom := range_low
+            channel_start_bar := bar_index - min_channel_bars
+            true
+        else
+            false
     else
-        0.0
-
-// Support/Resistance Detection
-detect_sr_levels() =>
-    if show_sr_lines and barstate.islast
-        // Clear old lines
-        if sr_lines.size() > 0
-            for line_obj in sr_lines
-                line_obj.delete()
-            sr_lines.clear()
-        
-        sr_levels.clear()
-        sr_touches.clear()
-        
-        // Detect pivot highs and lows
-        for i = sr_lookback to 1
-            pivot_high = pivot_high_5[i]
-            pivot_low = pivot_low_5[i]
-            
-            if not na(pivot_high)
-                sr_levels.push(pivot_high)
-                sr_touches.push(1)
-            
-            if not na(pivot_low)
-                sr_levels.push(pivot_low)
-                sr_touches.push(1)
-        
-        // Count touches and draw significant levels
-        for i = 0 to sr_levels.size() - 1
-            level = sr_levels.get(i)
-            touches = 0
-            
-            // Count how many times price touched this level
-            for j = 1 to sr_lookback
-                high_touch = math.abs(high[j] - level) <= (atr_val * 0.5)
-                low_touch = math.abs(low[j] - level) <= (atr_val * 0.5)
-                close_touch = math.abs(close[j] - level) <= (atr_val * 0.5)
-                
-                if high_touch or low_touch or close_touch
-                    touches += 1
-            
-            // Draw line if sufficient touches
-            if touches >= sr_strength_threshold
-                line_color = level > close ? red : green
-                line_obj = line.new(bar_index - sr_lookback, level, bar_index + 10, level, 
-                                  color=color.new(line_color, 30), width=2, style=line.style_dashed)
-                sr_lines.push(line_obj)
-
-// Calculate signal strength for all scenarios at global level
-current_signal_strength_bull = calculate_signal_strength(true, close, 0.0)
-current_signal_strength_bear = calculate_signal_strength(false, close, 0.0)
+        false
 
 // ============================================================================
-// MAIN LOGIC
+// REAL-TIME MAIN LOGIC
 // ============================================================================
 
 upbreak = 0.0
 downbreak = 0.0
+pre_signal_bull = false
+pre_signal_bear = false
 signal_strength = 0.0
-position_size = 0.0
 
-bool newChannelFormed = false
-bool bullishBreakout = false
-bool bearishBreakout = false
+// Real-time channel detection
+new_channel_formed = detect_realtime_channel()
 
-// Channel Formation with Enhanced Logic
-if ta.crossover(upper, lower) and duration > 10
-    if overlap or f_can_create(h, l)
+// Traditional channel detection (if real-time mode is off)
+if not realtime_mode
+    upper = (ta.highestbars(vol, effective_length + 1) + effective_length)/effective_length
+    lower = (ta.lowestbars(vol, effective_length + 1) + effective_length)/effective_length
+    duration = math.max(nz(ta.barssince(ta.crossover(lower,upper))), 1)
+    h = ta.highest(duration)
+    l = ta.lowest(duration)
+    
+    if ta.crossover(upper, lower) and duration > min_channel_bars
         boxes.unshift(box.new(bar_index-duration, h, bar_index, l, bgcolor = color.new(chart.fg_color, 90), border_color = na))
-        boxes_u.unshift(box.new(bar_index-duration, h, bar_index, h-vola, bgcolor = color.new(red, 70), border_color = na))
-        boxes_l.unshift(box.new(bar_index-duration, l+vola, bar_index, l, bgcolor = color.new(green, 70), border_color = na))
+        boxes_u.unshift(box.new(bar_index-duration, h, bar_index, h-atr_val/2, bgcolor = color.new(red, 70), border_color = na))
+        boxes_l.unshift(box.new(bar_index-duration, l+atr_val/2, bar_index, l, bgcolor = color.new(green, 70), border_color = na))
         
-        float centerY = (h + l) / 2
-        centerLines.unshift(line.new(bar_index-duration, centerY, bar_index, centerY, color = color.new(chart.fg_color, 50), width = 1, style = line.style_dashed))
-        newChannelFormed := true
+        centerLines.unshift(line.new(bar_index-duration, (h+l)/2, bar_index, (h+l)/2, color = color.new(chart.fg_color, 50), width = 1, style = line.style_dashed))
 
-// Enhanced Breakout Detection with Signal Strength
-if boxes.size() > 0
+// Real-time breakout detection
+if realtime_mode and in_channel and not na(channel_top) and not na(channel_bottom)
+    // Calculate current signal strength
+    bull_strength = calculate_realtime_signal_strength(true)
+    bear_strength = calculate_realtime_signal_strength(false)
+    
+    current_price = close
+    if breakout_confirmation == "Next Bar"
+        current_price := close[1]
+    else if breakout_confirmation == "Volume Confirmed"
+        current_price := volume > sma_vol_fast * volume_spike_threshold ? close : na
+    
+    if not na(current_price)
+        // Pre-signal detection (approaching breakout)
+        if show_pre_signals
+            distance_to_top = (channel_top - current_price) / (channel_top - channel_bottom)
+            distance_to_bottom = (current_price - channel_bottom) / (channel_top - channel_bottom)
+            
+            if distance_to_top < (1 - pre_signal_threshold) and bull_strength > min_signal_strength * 0.7
+                pre_signal_bull := true
+            
+            if distance_to_bottom < (1 - pre_signal_threshold) and bear_strength > min_signal_strength * 0.7
+                pre_signal_bear := true
+        
+        // Actual breakout detection
+        if current_price > channel_top and bull_strength >= min_signal_strength
+            upbreak := channel_bottom
+            signal_strength := bull_strength
+            in_channel := false
+            
+        else if current_price < channel_bottom and bear_strength >= min_signal_strength
+            downbreak := channel_top
+            signal_strength := bear_strength
+            in_channel := false
+
+// Traditional breakout detection
+if not realtime_mode and boxes.size() > 0
     for i = 0 to boxes.size()-1
         box_top = boxes.get(i).get_top()
         box_bottom = boxes.get(i).get_bottom()
-        channel_height = box_top - box_bottom
         
-        // Calculate signal strength with proper channel height
-        bull_strength = calculate_signal_strength(true, close, channel_height)
-        bear_strength = calculate_signal_strength(false, close, channel_height)
+        current_price = strong ? math.avg(close, open) : close
+        bull_strength = calculate_realtime_signal_strength(true)
+        bear_strength = calculate_realtime_signal_strength(false)
         
-        // Bullish breakout
-        if ((strong ? math.avg(close, open) : close) > box_top)
+        if current_price > box_top and bull_strength >= min_signal_strength
             upbreak := box_bottom
             signal_strength := bull_strength
-            
-            // Enhanced validation - check all conditions
-            channel_age = channel_start_bars.size() > i ? bar_index - channel_start_bars.get(i) : min_channel_duration
-            channel_mature = channel_age >= min_channel_duration
-            
-            // Only trigger if ALL conditions are met
-            if signal_strength >= min_signal_strength and can_signal() and channel_mature
-                // Calculate position size and stop loss
-                stop_loss = box_bottom - (atr_val * 0.75) // Wider stop for quality signals
-                position_size := calculate_position_size(close, stop_loss, account_size, risk_per_trade)
-                last_breakout_price := close
-                last_signal_strength := signal_strength
-                last_signal_bar := bar_index
-                bullishBreakout := true
-            else
-                // Reset if conditions not met
-                upbreak := 0.0
-                signal_strength := 0.0
-            
             boxes.remove(i)
             boxes_u.remove(i)
             boxes_l.remove(i)
             centerLines.remove(i)
-            if channel_start_bars.size() > i
-                channel_start_bars.remove(i)
+            break
             
-        // Bearish breakout
-        else if ((strong ? math.avg(close, open) : close) < box_bottom)
+        else if current_price < box_bottom and bear_strength >= min_signal_strength
             downbreak := box_top
             signal_strength := bear_strength
-            
-            // Enhanced validation - check all conditions
-            channel_age = channel_start_bars.size() > i ? bar_index - channel_start_bars.get(i) : min_channel_duration
-            channel_mature = channel_age >= min_channel_duration
-            
-            // Only trigger if ALL conditions are met
-            if signal_strength >= min_signal_strength and can_signal() and channel_mature
-                // Calculate position size and stop loss
-                stop_loss = box_top + (atr_val * 0.75) // Wider stop for quality signals
-                position_size := calculate_position_size(close, stop_loss, account_size, risk_per_trade)
-                last_breakout_price := close
-                last_signal_strength := signal_strength
-                last_signal_bar := bar_index
-                bearishBreakout := true
-            else
-                // Reset if conditions not met
-                downbreak := 0.0
-                signal_strength := 0.0
-            
             boxes.remove(i)
             boxes_u.remove(i)
             boxes_l.remove(i)
             centerLines.remove(i)
-            if channel_start_bars.size() > i
-                channel_start_bars.remove(i)
-        
+            break
         else
+            // Update box positions
             boxes.get(i).set_right(bar_index)
             boxes_u.get(i).set_right(bar_index)
             boxes_l.get(i).set_right(bar_index)
             centerLines.get(i).set_x2(bar_index)
-            
-            // Enhanced volume display with signal strength preview
-            float boxMidline = (box_top + box_bottom) / 2
-            float currentPrice = strong ? math.avg(close, open) : close
-            
-            // Preview signal strength for current position
-            float preview_strength = currentPrice > boxMidline ? bull_strength : bear_strength
-            
-            string volText = ""
-            if vol_mode == "Volume"
-                volText := str.tostring(math.round(volume / 1000, 1)) + "K"
-            else if vol_mode == "Comparison"
-                volText := str.tostring(math.round(uv / 1000, 1)) + "K/" + str.tostring(math.round(dv / 1000, 1)) + "K"
-            else if vol_mode == "Delta"
-                volText := str.tostring(math.round(vold / 1000, 1)) + "K"
-            
-            // Add signal strength to volume text
-            volText := volText + "\nStr:" + str.tostring(preview_strength, "0.1")
-            
-            if currentPrice > boxMidline
-                boxes_l.get(i).set_text(volText)
-                boxes_l.get(i).set_text_halign(text.align_right)
-                boxes_l.get(i).set_text_color(color.new(chart.fg_color, 30))
-                boxes_l.get(i).set_text_size(textSize(text_size))
-                boxes_u.get(i).set_text("")
-            else
-                boxes_u.get(i).set_text(volText)
-                boxes_u.get(i).set_text_halign(text.align_right)
-                boxes_u.get(i).set_text_color(color.new(chart.fg_color, 30))
-                boxes_u.get(i).set_text_size(textSize(text_size))
-                boxes_l.get(i).set_text("")
-
-// Volume Analysis (Enhanced)
-float currentMidline = na
-float channelHeight = na
-
-if boxes.size() > 0
-    float topBound = boxes.get(0).get_top()
-    float bottomBound = boxes.get(0).get_bottom()
-    currentMidline := (topBound + bottomBound) / 2
-    channelHeight := (topBound - bottomBound) * vol_scale
-
-float vol_upper_open = na
-float vol_upper_high = na  
-float vol_upper_low = na
-float vol_upper_close = na
-
-float vol_lower_open = na
-float vol_lower_high = na
-float vol_lower_low = na  
-float vol_lower_close = na
-
-if not na(currentMidline) and not na(channelHeight) and shw_vol
-    if vol_mode == "Volume"
-        float vol_height = (volume / smoothedvol) * (channelHeight / 4)
-        vol_upper_open := currentMidline
-        vol_upper_close := currentMidline + vol_height
-        vol_upper_high := currentMidline + vol_height
-        vol_upper_low := currentMidline
-        
-        vol_lower_open := currentMidline
-        vol_lower_close := currentMidline - vol_height
-        vol_lower_high := currentMidline
-        vol_lower_low := currentMidline - vol_height
-        
-    else if vol_mode == "Comparison"
-        float uv_height = na(uv) ? 0 : (uv / smoothedvol) * (channelHeight / 4)
-        float dv_height = na(dv) ? 0 : (dv / smoothedvol) * (channelHeight / 4)
-        
-        vol_upper_open := currentMidline
-        vol_upper_close := currentMidline + uv_height  
-        vol_upper_high := currentMidline + uv_height
-        vol_upper_low := currentMidline
-        
-        vol_lower_open := currentMidline
-        vol_lower_close := currentMidline + dv_height
-        vol_lower_high := currentMidline  
-        vol_lower_low := currentMidline + dv_height
-        
-    else if vol_mode == "Delta" 
-        float delta_height = na(vold) ? 0 : math.abs(vold / smoothedvol) * (channelHeight / 4)
-        
-        if vold >= 0
-            vol_upper_open := currentMidline
-            vol_upper_close := currentMidline + delta_height
-            vol_upper_high := currentMidline + delta_height  
-            vol_upper_low := currentMidline
-            
-            vol_lower_open := currentMidline
-            vol_lower_close := currentMidline
-            vol_lower_high := currentMidline
-            vol_lower_low := currentMidline
-        else
-            vol_upper_open := currentMidline
-            vol_upper_close := currentMidline
-            vol_upper_high := currentMidline
-            vol_upper_low := currentMidline
-            
-            vol_lower_open := currentMidline
-            vol_lower_close := currentMidline - delta_height  
-            vol_lower_high := currentMidline
-            vol_lower_low := currentMidline - delta_height
-
-color upperColor = vol_mode == "Volume" ? color.new(chart.fg_color, 60) : green
-color lowerColor = vol_mode == "Volume" ? color.new(chart.fg_color, 60) : red
 
 // ============================================================================
-// ENHANCED VISUALS WITH POSITION SIZING
+// ENHANCED REAL-TIME VISUALS
 // ============================================================================
 
-// Enhanced breakout signals with position sizing - using plot instead of plotshape
-bull_signal = upbreak != 0 ? upbreak : na
-bear_signal = downbreak != 0 ? downbreak : na
-
-plot(bull_signal, "Bullish Breakout", color=na, display=display.none)
-plot(bear_signal, "Bearish Breakout", color=na, display=display.none)
-
-// Create labels for breakout signals
-if upbreak != 0 and show_position_sizing and position_size > 0
-    signal_text = "▲ BUY\nStr: " + str.tostring(last_signal_strength, "0.1") + "/10\nSize: $" + str.tostring(math.round(position_size * last_breakout_price), "0")
-    label.new(bar_index, upbreak, signal_text, color=green, textcolor=chart.fg_color, style=label.style_label_up, size=textSize(text_size))
-else if upbreak != 0
-    label.new(bar_index, upbreak, "▲ BUY", color=green, textcolor=chart.fg_color, style=label.style_label_up, size=textSize(text_size))
-
-if downbreak != 0 and show_position_sizing and position_size > 0
-    signal_text = "▼ SELL\nStr: " + str.tostring(last_signal_strength, "0.1") + "/10\nSize: $" + str.tostring(math.round(position_size * last_breakout_price), "0")
-    label.new(bar_index, downbreak, signal_text, color=red, textcolor=chart.fg_color, style=label.style_label_down, size=textSize(text_size))
-else if downbreak != 0
-    label.new(bar_index, downbreak, "▼ SELL", color=red, textcolor=chart.fg_color, style=label.style_label_down, size=textSize(text_size))
-
-// Volume candles
-plotcandle(vol_upper_open, vol_upper_high, vol_upper_low, vol_upper_close, color=upperColor, wickcolor=upperColor, bordercolor=upperColor)
-plotcandle(vol_lower_open, vol_lower_high, vol_lower_low, vol_lower_close, color=lowerColor, wickcolor=lowerColor, bordercolor=lowerColor)
-
-// Support/Resistance Detection
-detect_sr_levels()
-
-// Enhanced gauge with signal strength
-volumeAvailable = not na(volume)
-
-if barstate.islast
-    bool channelActive = boxes.size() > 0 and upbreak == 0 and downbreak == 0
+// Real-time channel visualization
+if realtime_mode and in_channel and not na(channel_top) and not na(channel_bottom) and not na(channel_start_bar)
+    // Draw current channel
+    current_channel = box.new(channel_start_bar, channel_top, bar_index + 5, channel_bottom, bgcolor = color.new(chart.fg_color, 85), border_color = color.new(chart.fg_color, 60))
     
-    if array.size(gaugeLines) > 0
-        for ln in gaugeLines
-            ln.delete()
-        gaugeLines.clear()
+    // Draw breakout zones
+    upper_zone = box.new(channel_start_bar, channel_top, bar_index + 5, channel_top - atr_val/2, bgcolor = color.new(red, 60), border_color = na)
+    lower_zone = box.new(channel_start_bar, channel_bottom + atr_val/2, bar_index + 5, channel_bottom, bgcolor = color.new(green, 60), border_color = na)
+
+// Pre-signal alerts
+if pre_signal_bull
+    label.new(bar_index, high, "⚠ BULL SETUP", color=color.new(yellow, 20), textcolor=chart.bg_color, style=label.style_label_down, size=size.small)
+
+if pre_signal_bear
+    label.new(bar_index, low, "⚠ BEAR SETUP", color=color.new(yellow, 20), textcolor=chart.bg_color, style=label.style_label_up, size=size.small)
+
+// Breakout signals with position sizing
+position_size = 0.0
+if upbreak != 0 or downbreak != 0
+    entry_price = upbreak != 0 ? close : close
+    stop_loss = upbreak != 0 ? upbreak - atr_val : downbreak + atr_val
+    risk_amount = account_size * (risk_per_trade / 100)
+    price_diff = math.abs(entry_price - stop_loss)
+    if price_diff > 0
+        position_size := math.min(risk_amount / price_diff, account_size * 0.25)
+
+if upbreak != 0
+    signal_text = "🚀 BUY NOW!\nStr: " + str.tostring(signal_strength, "0.1") + "/10"
+    if show_position_sizing and position_size > 0
+        signal_text := signal_text + "\nSize: $" + str.tostring(math.round(position_size * close), "0")
+    label.new(bar_index, upbreak, signal_text, color=green, textcolor=chart.bg_color, style=label.style_label_up, size=textSize(text_size))
+
+if downbreak != 0
+    signal_text = "🔻 SELL NOW!\nStr: " + str.tostring(signal_strength, "0.1") + "/10"
+    if show_position_sizing and position_size > 0
+        signal_text := signal_text + "\nSize: $" + str.tostring(math.round(position_size * close), "0")
+    label.new(bar_index, downbreak, signal_text, color=red, textcolor=chart.bg_color, style=label.style_label_down, size=textSize(text_size))
+
+// Real-time strength indicator
+if realtime_mode
+    current_bull_strength = calculate_realtime_signal_strength(true)
+    current_bear_strength = calculate_realtime_signal_strength(false)
+    max_strength = math.max(current_bull_strength, current_bear_strength)
     
-    if not na(gaugeLabel)
-        gaugeLabel.delete()
-        gaugeLabel := na
-    
-    if channelActive
-        float topBound = boxes.get(0).get_top()
-        float bottomBound = boxes.get(0).get_bottom()
+    if barstate.islast and max_strength > min_signal_strength * 0.8
+        strength_color = current_bull_strength > current_bear_strength ? green : red
+        strength_text = "Strength: " + str.tostring(max_strength, "0.1") + "/10"
         
-        if not na(topBound) and not na(bottomBound) and topBound != bottomBound
-            int segments = 21
-            float segLen = (topBound - bottomBound) / segments
-            
-            for i = 0 to segments - 1
-                float y1 = topBound - i * segLen
-                float y2 = topBound - (i + 1) * segLen
-                color segCol = color.from_gradient(y1, bottomBound, topBound, red, green)
-                line ln = line.new(x1 = bar_index + 2, y1 = y1, x2 = bar_index + 2, y2 = y2, 
-                                 color = segCol, width = 4)
-                gaugeLines.unshift(ln)
-            
-            float delvol = -100*2*((vold-lvold)/(hvold-lvold)-0.5)
-            delvol := math.max(math.min(delvol, 100), -100)
-            float pointerPos = topBound - ((delvol + 100) / 200) * (topBound - bottomBound)
-            
-            // Enhanced gauge label with signal strength preview
-            float preview_strength = math.max(current_signal_strength_bull, current_signal_strength_bear)
-            string gauge_text = "◀\n" + str.tostring(preview_strength, "0.1")
-            
-            gaugeLabel := label.new(x = bar_index + 3, y = pointerPos, text = gauge_text, 
-                                  color = na, textcolor = chart.fg_color, size = size.small, 
-                                  style = label.style_label_left)
-
-// Warning for no volume data
-if not volumeAvailable
-    var gaugeWarnTable = table.new(position = position.top_right, columns = 1, rows = 1, 
-                                 bgcolor = red, border_width = 1, border_color = chart.fg_color, 
-                                 frame_color = chart.fg_color, frame_width = 1)
-    table.cell(gaugeWarnTable, 0, 0, "Volume not available\nAdvanced features limited", 
-             text_color = chart.fg_color, text_halign = text.align_center, text_size = size.small)
+        var table strength_table = table.new(position.top_right, 1, 1, bgcolor=color.new(strength_color, 80), border_width=1)
+        table.cell(strength_table, 0, 0, strength_text, text_color=chart.bg_color, text_halign=text.align_center, text_size=size.small)
 
 // ============================================================================
-// ENHANCED ALERTS
+// ENHANCED REAL-TIME ALERTS
 // ============================================================================
 
-alertcondition(newChannelFormed, "New Channel Formation", "A new breakout channel has been formed")
-alertcondition(bullishBreakout and signal_strength >= min_signal_strength, "Strong Bullish Breakout", 
-             "Strong bullish breakout detected")
-alertcondition(bearishBreakout and signal_strength >= min_signal_strength, "Strong Bearish Breakout", 
-             "Strong bearish breakout detected")
+alertcondition(new_channel_formed, "New Channel Formation", "Real-time channel detected - prepare for breakout")
+alertcondition(pre_signal_bull, "Bullish Setup Alert", "Approaching bullish breakout - get ready!")
+alertcondition(pre_signal_bear, "Bearish Setup Alert", "Approaching bearish breakout - get ready!")
+alertcondition(upbreak != 0, "IMMEDIATE BUY SIGNAL", "🚀 BULLISH BREAKOUT NOW!")
+alertcondition(downbreak != 0, "IMMEDIATE SELL SIGNAL", "🔻 BEARISH BREAKOUT NOW!")
 
-// Plot hidden values for alerts
+// Plot values for alerts
 plot(signal_strength, "Signal Strength", display = display.none)
 plot(position_size, "Position Size", display = display.none)
+plot(realtime_mode ? (in_channel ? 1 : 0) : (boxes.size() > 0 ? 1 : 0), "Channel Active", display = display.none)
