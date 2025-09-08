@@ -162,24 +162,25 @@ calculate_realtime_signal_strength(bool is_bullish) =>
     strength
 
 // Real-time channel detection
-detect_realtime_channel() =>
-    // Quick channel formation detection
+detect_realtime_channel(in_channel_arg) =>
+    range_high = ta.highest(high, min_channel_bars)
+    range_low = ta.lowest(low, min_channel_bars)
+
+    is_formed = false
+    top = float(na)
+    bottom = float(na)
+    start_bar = int(na)
+
     if quick_detection
-        range_high = ta.highest(high, min_channel_bars)
-        range_low = ta.lowest(low, min_channel_bars)
         range_size = range_high - range_low
         
-        // Check if we have a valid range
-        if range_size > atr_val * 0.5 and not in_channel
-            in_channel := true
-            channel_top := range_high
-            channel_bottom := range_low
-            channel_start_bar := bar_index - min_channel_bars
-            true
-        else
-            false
-    else
-        false
+        if range_size > atr_val * 0.5 and not in_channel_arg
+            is_formed = true
+            top = range_high
+            bottom = range_low
+            start_bar = bar_index - min_channel_bars
+
+    [is_formed, top, bottom, start_bar]
 
 // ============================================================================
 // REAL-TIME MAIN LOGIC
@@ -192,7 +193,13 @@ pre_signal_bear = false
 signal_strength = 0.0
 
 // Real-time channel detection
-new_channel_formed = detect_realtime_channel()
+[new_channel_formed, new_top, new_bottom, new_start_bar] = detect_realtime_channel(in_channel)
+
+if new_channel_formed
+    in_channel := true
+    channel_top := new_top
+    channel_bottom := new_bottom
+    channel_start_bar := new_start_bar
 
 // Traditional channel detection (if real-time mode is off)
 if not realtime_mode
