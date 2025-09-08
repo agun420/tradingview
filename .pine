@@ -79,10 +79,10 @@ var float channel_bottom = na
 // Dynamic length adjustment based on volatility
 current_volatility = ta.atr(10)
 avg_volatility = ta.sma(current_volatility, 20)
-volatility_ratio = current_volatility / avg_volatility
+volatility_ratio = avg_volatility > 0 ? current_volatility / avg_volatility : 1
 
 // Adjust detection length dynamically
-effective_length = dynamic_length ? math.round(base_length * (2 - math.min(volatility_ratio * volatility_multiplier, 2))) : base_length
+effective_length = dynamic_length ? math.max(1, math.round(base_length * (2 - math.min(volatility_ratio * volatility_multiplier, 2)))) : base_length
 
 // Faster calculations with reduced lookback
 lowestLow = ta.lowest(low, math.min(effective_length, length_))
