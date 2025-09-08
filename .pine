@@ -82,7 +82,10 @@ avg_volatility = ta.sma(current_volatility, 20)
 volatility_ratio = avg_volatility > 0 ? current_volatility / avg_volatility : 1
 
 // Adjust detection length dynamically
-effective_length = dynamic_length ? math.max(1, math.round(base_length * (2 - math.min(volatility_ratio * volatility_multiplier, 2)))) : base_length
+dynamic_effective_length = dynamic_length ? math.max(1, math.round(base_length * (2 - math.min(volatility_ratio * volatility_multiplier, 2)))) : base_length
+
+// Use a safe length for initial bars to prevent errors
+effective_length = bar_index < base_length ? base_length : dynamic_effective_length
 
 // Faster calculations with reduced lookback
 lowestLow = ta.lowest(low, math.min(effective_length, length_))
