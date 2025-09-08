@@ -2,7 +2,7 @@
 // This Source Code is subject to the Mozilla Public License 2.0
 // https://mozilla.org/MPL/2.0/
 //@version=6
-indicator("Real-Time Smart Money Breakout System", "RT-Pro", overlay=true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+indicator("Real-Time Smart Money Breakout System", "RT-Pro", overlay=true, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500, calc_on_every_tick=true)
 import TradingView/ta/10
 
 // ============================================================================
